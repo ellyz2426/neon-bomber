@@ -20,7 +20,7 @@ import {
   LineSegments,
   InputComponent,
 } from '@iwsdk/core';
-import { GameManager, GRID_W, GRID_H, CELL_SIZE, CellType, PowerUpType, GameState, BombData, EnemyData, PowerUpData, LaserData } from './game';
+import { GameManager, GRID_W, GRID_H, CELL_SIZE, CellType, PowerUpType, GameState, BombData, EnemyData, PowerUpData, LaserData, ScorePopup, WarpPortalData } from './game';
 
 // Materials cache
 const MAT = {
@@ -88,6 +88,9 @@ export class GameSystem extends createSystem({}) {
   private laserMeshes: Map<number, Group> = new Map();
   private laserWarningMeshes: Map<number, Mesh[]> = new Map();
   private conveyorMeshes: Map<string, Group> = new Map();
+  private warpPortalMeshes: Map<number, Group> = new Map();
+  private scorePopupMeshes: Array<{ group: Group; life: number }> = [];
+  private powerUpCollectEffects: Array<{ mesh: Mesh; vel: Vector3; life: number }> = [];
   private dangerZonePool: Mesh[] = [];
   private dangerZoneActiveCount = 0;
   private trailPool: Mesh[] = [];
@@ -238,7 +241,7 @@ export class GameSystem extends createSystem({}) {
     MAT.borderGlow = new MeshBasicMaterial({ color: 0x00ffff, transparent: true, opacity: 0.4, blending: AdditiveBlending });
     MAT.exitTile = new MeshBasicMaterial({ color: 0x00ff88, transparent: true, opacity: 0.8, blending: AdditiveBlending });
 
-    const puColors = [0x00ff00, 0xff8800, 0xffff00, 0x8888ff, 0xff00ff, 0x00ffff];
+    const puColors = [0x00ff00, 0xff8800, 0xffff00, 0x8888ff, 0xff00ff, 0x00ffff, 0xff6644];
     for (let i = 0; i < puColors.length; i++) {
       MAT.powerUp.set(i, new MeshBasicMaterial({ color: puColors[i], transparent: true, opacity: 0.9, blending: AdditiveBlending }));
     }
@@ -371,6 +374,9 @@ export class GameSystem extends createSystem({}) {
     if (result.powerUpsSpawned.length > 0) {
       this.playPowerUpSpawnSound();
     }
+    if (result.bombKicked) {
+      this.playBombKickSound();
+    }
     for (const laser of result.laserFired) {
       this.playLaserSound();
       this.shakeTimer = 0.15;
@@ -403,6 +409,9 @@ export class GameSystem extends createSystem({}) {
     this.updateConveyorVisuals(time);
     this.updateDangerZoneVisuals(time);
     this.updateTrailVisuals();
+    this.updateWarpPortalVisuals(time);
+    this.updateScorePopupVisuals(delta);
+    this.updatePowerUpCollectEffects(delta);
 
     // Update particles
     this.updateParticles(delta);
@@ -575,7 +584,7 @@ export class GameSystem extends createSystem({}) {
     for (const bomb of this.game.bombs) {
       const key = `${bomb.x}_${bomb.y}`;
       activeKeys.add(key);
-      const [wx, , wz] = gridToWorld(bomb.x, bomb.y);
+      const [wx, , wz] = gridToWorld(bomb.slideVisualX, bomb.slideVisualY);
 
       if (!this.bombMeshes.has(key)) {
         const group = new Group();
@@ -604,6 +613,9 @@ export class GameSystem extends createSystem({}) {
       }
 
       const group = this.bombMeshes.get(key)!;
+      // Update position each frame (handles sliding bombs)
+      const [bwx, , bwz] = gridToWorld(bomb.slideVisualX, bomb.slideVisualY);
+      group.position.set(bwx, 0, bwz);
       const urgency = 1 - bomb.timer / 3;
       const pulse = Math.sin(this.animTime * (5 + urgency * 15)) * 0.5 + 0.5;
       const glow = group.children[1] as Mesh;
@@ -1102,6 +1114,12 @@ export class GameSystem extends createSystem({}) {
     this.laserWarningMeshes.clear();
     for (const [, group] of this.conveyorMeshes) this.arenaGroup.remove(group);
     this.conveyorMeshes.clear();
+    for (const [, group] of this.warpPortalMeshes) this.arenaGroup.remove(group);
+    this.warpPortalMeshes.clear();
+    for (const sp of this.scorePopupMeshes) this.arenaGroup.remove(sp.group);
+    this.scorePopupMeshes.length = 0;
+    for (const p of this.powerUpCollectEffects) this.arenaGroup.remove(p.mesh);
+    this.powerUpCollectEffects.length = 0;
     for (const m of this.dangerZonePool) m.visible = false;
     this.dangerZoneActiveCount = 0;
     for (const m of this.trailPool) m.visible = false;
@@ -1317,6 +1335,193 @@ export class GameSystem extends createSystem({}) {
     this.trailActiveCount = poolIdx;
   }
 
+  // --- Warp portal visuals ---
+
+  private updateWarpPortalVisuals(time: number) {
+    const activeIds = new Set<number>();
+
+    for (let i = 0; i < this.game.warpPortals.length; i++) {
+      const portal = this.game.warpPortals[i];
+      activeIds.add(i);
+
+      if (!this.warpPortalMeshes.has(i)) {
+        const group = new Group();
+        const portalColors = [0x00ffff, 0xff88ff];
+
+        // Portal A
+        const ringGeoA = new CylinderGeometry(0.35, 0.35, 0.04, 16);
+        const ringMatA = new MeshBasicMaterial({
+          color: portalColors[0], transparent: true, opacity: 0.7, blending: AdditiveBlending,
+        });
+        const ringA = new Mesh(ringGeoA, ringMatA);
+        const [ax, , az] = gridToWorld(portal.ax, portal.ay);
+        ringA.position.set(ax, 0.04, az);
+        group.add(ringA);
+
+        // Portal A center glow
+        const centerA = new Mesh(
+          new CylinderGeometry(0.2, 0.2, 0.02, 12),
+          new MeshBasicMaterial({ color: portalColors[0], transparent: true, opacity: 0.4, blending: AdditiveBlending })
+        );
+        centerA.position.set(ax, 0.06, az);
+        group.add(centerA);
+
+        // Portal B
+        const ringGeoB = new CylinderGeometry(0.35, 0.35, 0.04, 16);
+        const ringMatB = new MeshBasicMaterial({
+          color: portalColors[1], transparent: true, opacity: 0.7, blending: AdditiveBlending,
+        });
+        const ringB = new Mesh(ringGeoB, ringMatB);
+        const [bx, , bz] = gridToWorld(portal.bx, portal.by);
+        ringB.position.set(bx, 0.04, bz);
+        group.add(ringB);
+
+        // Portal B center glow
+        const centerB = new Mesh(
+          new CylinderGeometry(0.2, 0.2, 0.02, 12),
+          new MeshBasicMaterial({ color: portalColors[1], transparent: true, opacity: 0.4, blending: AdditiveBlending })
+        );
+        centerB.position.set(bx, 0.06, bz);
+        group.add(centerB);
+
+        this.arenaGroup.add(group);
+        this.warpPortalMeshes.set(i, group);
+      }
+
+      const group = this.warpPortalMeshes.get(i)!;
+      // Pulsate
+      const pulse = Math.sin(time * 3 + i * 2) * 0.2 + 0.6;
+      for (let c = 0; c < group.children.length; c++) {
+        const child = group.children[c] as Mesh;
+        (child.material as MeshBasicMaterial).opacity = pulse * (c % 2 === 0 ? 0.7 : 0.4);
+        child.rotation.y = time * (c < 2 ? 2 : -2);
+      }
+
+      // Dim when on cooldown
+      if (portal.cooldown > 0) {
+        for (const child of group.children) {
+          ((child as Mesh).material as MeshBasicMaterial).opacity *= 0.3;
+        }
+      }
+    }
+
+    for (const [id, group] of this.warpPortalMeshes) {
+      if (!activeIds.has(id)) {
+        this.arenaGroup.remove(group);
+        this.warpPortalMeshes.delete(id);
+      }
+    }
+  }
+
+  // --- Score popup visuals ---
+
+  private updateScorePopupVisuals(delta: number) {
+    // Spawn new popups from game state
+    while (this.game.scorePopups.length > 0) {
+      const pop = this.game.scorePopups.shift()!;
+      this.spawnScorePopup(pop);
+    }
+
+    // Update existing popups
+    for (let i = this.scorePopupMeshes.length - 1; i >= 0; i--) {
+      const sp = this.scorePopupMeshes[i];
+      sp.life -= delta;
+      if (sp.life <= 0) {
+        this.arenaGroup.remove(sp.group);
+        this.scorePopupMeshes.splice(i, 1);
+        continue;
+      }
+      // Float upward
+      sp.group.position.y += delta * 1.5;
+      // Fade out
+      const alpha = Math.min(1, sp.life / 0.5);
+      for (const child of sp.group.children) {
+        ((child as Mesh).material as MeshBasicMaterial).opacity = alpha;
+      }
+      sp.group.scale.setScalar(0.8 + (1 - sp.life / 1.5) * 0.3);
+    }
+  }
+
+  private spawnScorePopup(pop: { x: number; y: number; value: number; color: number }) {
+    const group = new Group();
+    const [wx, , wz] = gridToWorld(pop.x, pop.y);
+    group.position.set(wx, 1.2, wz);
+
+    // Create number display using small cubes as digit-like shapes
+    const digits = String(pop.value);
+    const spacing = 0.12;
+    const startX = -(digits.length - 1) * spacing / 2;
+    const mat = new MeshBasicMaterial({
+      color: pop.color, transparent: true, opacity: 1, blending: AdditiveBlending,
+    });
+
+    for (let d = 0; d < Math.min(digits.length, 6); d++) {
+      const block = new Mesh(
+        new BoxGeometry(0.08, 0.12, 0.02),
+        mat.clone()
+      );
+      block.position.x = startX + d * spacing;
+      group.add(block);
+    }
+
+    // + sign
+    const plus = new Mesh(
+      new BoxGeometry(0.06, 0.06, 0.02),
+      new MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.8, blending: AdditiveBlending })
+    );
+    plus.position.x = startX - spacing;
+    group.add(plus);
+
+    this.arenaGroup.add(group);
+    this.scorePopupMeshes.push({ group, life: 1.5 });
+  }
+
+  // --- Power-up collection effect ---
+
+  spawnPowerUpCollectEffect(gx: number, gy: number, color: number) {
+    const [wx, , wz] = gridToWorld(gx, gy);
+    for (let i = 0; i < 12; i++) {
+      const angle = (i / 12) * Math.PI * 2;
+      const size = 0.04 + Math.random() * 0.06;
+      const geo = new SphereGeometry(size, 6, 6);
+      const mat = new MeshBasicMaterial({
+        color, transparent: true, opacity: 1, blending: AdditiveBlending,
+      });
+      const mesh = new Mesh(geo, mat);
+      mesh.position.set(
+        wx + Math.cos(angle) * 0.2,
+        0.4,
+        wz + Math.sin(angle) * 0.2
+      );
+      this.arenaGroup.add(mesh);
+      this.powerUpCollectEffects.push({
+        mesh,
+        vel: new Vector3(
+          Math.cos(angle) * 2 + (Math.random() - 0.5),
+          3 + Math.random() * 2,
+          Math.sin(angle) * 2 + (Math.random() - 0.5)
+        ),
+        life: 0.8 + Math.random() * 0.4,
+      });
+    }
+  }
+
+  private updatePowerUpCollectEffects(delta: number) {
+    for (let i = this.powerUpCollectEffects.length - 1; i >= 0; i--) {
+      const p = this.powerUpCollectEffects[i];
+      p.life -= delta;
+      if (p.life <= 0) {
+        this.arenaGroup.remove(p.mesh);
+        this.powerUpCollectEffects.splice(i, 1);
+        continue;
+      }
+      p.vel.y -= 6 * delta;
+      p.mesh.position.add(p.vel.clone().multiplyScalar(delta));
+      (p.mesh.material as MeshBasicMaterial).opacity = p.life;
+      p.mesh.scale.setScalar(p.life);
+    }
+  }
+
   // --- Procedural audio ---
   private audioCtx: AudioContext | null = null;
   private musicNodes: { oscs: OscillatorNode[]; masterGain: GainNode; filter: BiquadFilterNode } | null = null;
@@ -1445,6 +1650,24 @@ export class GameSystem extends createSystem({}) {
 
   playConveyorSound() {
     this.playTone(180, 0.08, 0.06, 'sine');
+  }
+
+  playBombKickSound() {
+    this.playTone(350, 0.08, 0.15, 'square');
+    setTimeout(() => this.playTone(500, 0.06, 0.1, 'sine'), 30);
+  }
+
+  playWarpSound() {
+    this.playTone(1000, 0.08, 0.12, 'sine');
+    setTimeout(() => this.playTone(600, 0.1, 0.1, 'sine'), 40);
+    setTimeout(() => this.playTone(1200, 0.12, 0.08, 'sine'), 80);
+  }
+
+  playAchievementSound() {
+    const notes = [660, 880, 1100, 1320];
+    notes.forEach((n, i) => {
+      setTimeout(() => this.playTone(n, 0.15, 0.1, 'sine'), i * 80);
+    });
   }
 
   playMultiplierSound(mult: number) {

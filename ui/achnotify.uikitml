@@ -1,0 +1,7 @@
+<panel width="360" height="80" backgroundColor="#1a0033ee" borderRadius="12" padding="8" flexDirection="row" alignItems="center" justifyContent="center" gap="12">
+  <text id="ach-icon" fontSize="22" color="#ffcc00">*</text>
+  <panel flexDirection="column" alignItems="center" gap="2">
+    <text id="ach-title" fontSize="12" color="#ffcc00" fontWeight="bold">ACHIEVEMENT UNLOCKED</text>
+    <text id="ach-name" fontSize="14" color="#ffffff"></text>
+  </panel>
+</panel>

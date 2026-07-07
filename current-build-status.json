@@ -8,7 +8,7 @@
   "build_start_utc": "2026-07-07T07:00:00Z",
   "target_hours": 6,
   "total_build_minutes": 70,
-  "status": "waiting_continuation",
+  "status": "building",
   "rounds": [
     {
       "round": 2,
@@ -67,5 +67,5 @@
     "Laser/conveyor/multiplier SFX",
     "HUD multiplier display"
   ],
-  "last_updated_utc": "2026-07-07T11:21:09Z"
+  "last_updated_utc": "2026-07-07T11:59:48Z"
 }

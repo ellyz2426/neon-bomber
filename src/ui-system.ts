@@ -62,6 +62,10 @@ export class GameUISystem extends createSystem({
     required: [PanelUI, PanelDocument],
     where: [eq(PanelUI, 'config', './ui/howto.json')],
   },
+  achNotify: {
+    required: [PanelUI, PanelDocument],
+    where: [eq(PanelUI, 'config', './ui/achnotify.json')],
+  },
 }) {
   private game!: GameManager;
   private gameSystem!: GameSystem;
@@ -74,6 +78,7 @@ export class GameUISystem extends createSystem({
   private powerupsEntity!: Entity;
   private transitionEntity!: Entity;
   private howtoEntity!: Entity;
+  private achNotifyEntity!: Entity;
 
   private hudDoc: UIKitDocument | null = null;
   private menuDoc: UIKitDocument | null = null;
@@ -84,6 +89,7 @@ export class GameUISystem extends createSystem({
   private powerupsDoc: UIKitDocument | null = null;
   private transitionDoc: UIKitDocument | null = null;
   private howtoDoc: UIKitDocument | null = null;
+  private achNotifyDoc: UIKitDocument | null = null;
 
   private lastState: GameState = GameState.Menu;
   private lastCombo = 0;
@@ -97,7 +103,7 @@ export class GameUISystem extends createSystem({
   setPanelEntities(
     hud: Entity, menu: Entity, gameover: Entity, settings: Entity,
     pause: Entity, achievements: Entity, powerups: Entity, transition: Entity,
-    howto: Entity
+    howto: Entity, achNotify: Entity
   ) {
     this.hudEntity = hud;
     this.menuEntity = menu;
@@ -108,6 +114,7 @@ export class GameUISystem extends createSystem({
     this.powerupsEntity = powerups;
     this.transitionEntity = transition;
     this.howtoEntity = howto;
+    this.achNotifyEntity = achNotify;
   }
 
   init() {
@@ -151,6 +158,10 @@ export class GameUISystem extends createSystem({
     this.queries.howto.subscribe('qualify', (entity) => {
       this.howtoDoc = getDoc(entity) || null;
       if (this.howtoDoc) this.wireHowtoButtons();
+    });
+
+    this.queries.achNotify.subscribe('qualify', (entity) => {
+      this.achNotifyDoc = getDoc(entity) || null;
     });
   }
 
@@ -352,6 +363,18 @@ export class GameUISystem extends createSystem({
       if (this.hudDoc) this.updateHUD();
       if (this.powerupsDoc) this.updatePowerUpsHUD();
 
+      // Achievement notifications
+      if (this.game.achievementNotifications.length > 0 && this.achNotifyDoc) {
+        const notif = this.game.achievementNotifications[0];
+        setText(this.achNotifyDoc, 'ach-name', notif.name);
+        if (this.achNotifyEntity) {
+          this.achNotifyEntity.object3D!.visible = true;
+        }
+        this.gameSystem.playAchievementSound();
+      } else if (this.achNotifyEntity) {
+        this.achNotifyEntity.object3D!.visible = false;
+      }
+
       // Combo sound
       if (this.game.comboCount > this.lastCombo && this.game.comboCount > 1) {
         this.gameSystem.playComboSound(this.game.comboCount);
@@ -462,6 +485,7 @@ export class GameUISystem extends createSystem({
     setColor(this.powerupsDoc, 'pu-remote', this.game.hasRemoteDetonate ? '#ff00ff' : '#555555');
     const shieldActive = this.game.hasShield && this.game.shieldTimer > 0;
     setColor(this.powerupsDoc, 'pu-shield', shieldActive ? '#00ffff' : '#555555');
+    setColor(this.powerupsDoc, 'pu-kick', this.game.hasBombKick ? '#ff6644' : '#555555');
   }
 
   private updatePauseDisplay() {

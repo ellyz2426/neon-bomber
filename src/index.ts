@@ -110,10 +110,21 @@ async function main() {
   howtoEntity.object3D!.visible = false;
   howtoEntity.addComponent(PanelUI, { config: './ui/howto.json' });
 
+  // Create achievement notification panel (head-locked, top)
+  const achNotifyEntity = world.createTransformEntity(undefined, {
+    parent: world.playerHeadEntity,
+    persistent: true,
+  });
+  achNotifyEntity.addComponent(PanelUI, { config: './ui/achnotify.json' });
+  achNotifyEntity.addComponent(Follower);
+  const anOff = achNotifyEntity.getVectorView(Follower, 'offsetPosition');
+  anOff[0] = 0; anOff[1] = 0.32; anOff[2] = -0.6;
+  achNotifyEntity.object3D!.visible = false;
+
   uiSystem.setPanelEntities(
     hudEntity, menuEntity, gameoverEntity, settingsEntity,
     pauseEntity, achievementsEntity, powerupsEntity, transitionEntity,
-    howtoEntity
+    howtoEntity, achNotifyEntity
   );
 }
 

@@ -16,4 +16,5 @@
   <text name="pu-pass" fontSize="10" color="#555555">PT</text>
   <text name="pu-remote" fontSize="10" color="#555555">RD</text>
   <text name="pu-shield" fontSize="10" color="#555555">SH</text>
+  <text name="pu-kick" fontSize="10" color="#555555">KK</text>
 </container>

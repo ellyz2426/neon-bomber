@@ -21,6 +21,7 @@ export enum PowerUpType {
   PassThrough = 3,
   RemoteDetonate = 4,
   Shield = 5,
+  BombKick = 6,
 }
 
 export enum GameState {
@@ -46,6 +47,11 @@ export interface BombData {
   range: number;
   owner: 'player' | 'enemy';
   remote: boolean;
+  sliding: boolean;
+  slideDir: [number, number];
+  slideSpeed: number;
+  slideVisualX: number;
+  slideVisualY: number;
 }
 
 export interface ExplosionData {
@@ -99,6 +105,30 @@ export interface ConveyorData {
   y: number;
   dx: number; // push direction
   dy: number;
+}
+
+// Warp portal pair
+export interface WarpPortalData {
+  ax: number;
+  ay: number;
+  bx: number;
+  by: number;
+  cooldown: number; // prevents instant re-warp
+}
+
+// Score popup for visual feedback
+export interface ScorePopup {
+  x: number;
+  y: number;
+  value: number;
+  age: number;
+  color: number;
+}
+
+// Achievement notification
+export interface AchievementNotification {
+  name: string;
+  timer: number;
 }
 
 // Danger zone preview for bomb
@@ -396,6 +426,7 @@ export class GameManager {
   lasers: LaserData[] = [];
   conveyors: ConveyorData[] = [];
   dangerZones: DangerZone[] = [];
+  warpPortals: WarpPortalData[] = [];
 
   // Score multiplier
   multiplier = 1;
@@ -404,6 +435,16 @@ export class GameManager {
 
   // Trail positions for visual effect
   playerTrail: Array<{ x: number; y: number; age: number }> = [];
+
+  // Score popups
+  scorePopups: ScorePopup[] = [];
+
+  // Achievement notification queue
+  achievementNotifications: AchievementNotification[] = [];
+
+  // Bomb kick
+  hasBombKick = false;
+  lastMoveDir: [number, number] = [0, -1];
 
   // Theme
   themeIndex = 0;
@@ -731,6 +772,36 @@ export class GameManager {
         }
       }
     }
+
+    // Warp portals appear from level 5+
+    if (this.level >= 5 && this.mode !== GameMode.Puzzle) {
+      const portalCount = Math.min(Math.floor((this.level - 4) / 2) + 1, 3);
+      for (let i = 0; i < portalCount; i++) {
+        let ax: number, ay: number, bx: number, by: number;
+        let attempts = 0;
+        do {
+          ax = 2 + Math.floor(Math.random() * (GRID_W - 4));
+          ay = 2 + Math.floor(Math.random() * (GRID_H - 4));
+          bx = 2 + Math.floor(Math.random() * (GRID_W - 4));
+          by = 2 + Math.floor(Math.random() * (GRID_H - 4));
+          attempts++;
+        } while (
+          attempts < 30 &&
+          (this.grid[ay][ax] !== CellType.Empty ||
+            this.grid[by][bx] !== CellType.Empty ||
+            (ax === bx && ay === by) ||
+            (ax <= 2 && ay <= 2) || (bx <= 2 && by <= 2) ||
+            Math.abs(ax - bx) + Math.abs(ay - by) < 4 ||
+            this.warpPortals.some(p =>
+              (p.ax === ax && p.ay === ay) || (p.bx === bx && p.by === by) ||
+              (p.ax === bx && p.ay === by) || (p.bx === ax && p.by === ay)
+            ))
+        );
+        if (attempts < 30) {
+          this.warpPortals.push({ ax, ay, bx, by, cooldown: 0 });
+        }
+      }
+    }
   }
 
   computeDangerZones() {
@@ -778,10 +849,15 @@ export class GameManager {
     this.lasers = [];
     this.conveyors = [];
     this.dangerZones = [];
+    this.warpPortals = [];
     this.playerTrail = [];
+    this.scorePopups = [];
+    this.achievementNotifications = [];
     this.multiplier = 1;
     this.multiplierTimer = 0;
     this.maxMultiplier = 1;
+    this.hasBombKick = false;
+    this.lastMoveDir = [0, -1];
     this.exitX = -1;
     this.exitY = -1;
     this.exitRevealed = false;
@@ -862,6 +938,26 @@ export class GameManager {
 
     const nx = this.playerX + dx;
     const ny = this.playerY + dy;
+
+    this.lastMoveDir = [dx, dy];
+
+    // Bomb kick: if we walk into a bomb and have kick ability, kick it
+    if (nx >= 0 && nx < GRID_W && ny >= 0 && ny < GRID_H && this.grid[ny][nx] === CellType.Bomb) {
+      if (this.hasBombKick) {
+        const bomb = this.bombs.find(b => b.x === nx && b.y === ny && !b.sliding);
+        if (bomb) {
+          bomb.sliding = true;
+          bomb.slideDir = [dx, dy];
+          bomb.slideSpeed = 8;
+          bomb.slideVisualX = nx;
+          bomb.slideVisualY = ny;
+          this.playerMoveTimer = 1.0 / this.speed;
+          return true;
+        }
+      }
+      return false;
+    }
+
     if (!this.canMove(nx, ny)) return false;
 
     this.playerX = nx;
@@ -874,8 +970,28 @@ export class GameManager {
       this.collectPowerUp(pIdx);
     }
 
+    // Check warp portal
+    for (const portal of this.warpPortals) {
+      if (portal.cooldown > 0) continue;
+      if (nx === portal.ax && ny === portal.ay) {
+        this.playerX = portal.bx;
+        this.playerY = portal.by;
+        this.playerVisualX = portal.bx;
+        this.playerVisualY = portal.by;
+        portal.cooldown = 1.0;
+        break;
+      } else if (nx === portal.bx && ny === portal.by) {
+        this.playerX = portal.ax;
+        this.playerY = portal.ay;
+        this.playerVisualX = portal.ax;
+        this.playerVisualY = portal.ay;
+        portal.cooldown = 1.0;
+        break;
+      }
+    }
+
     // Check puzzle exit
-    if (this.mode === GameMode.Puzzle && this.exitRevealed && nx === this.exitX && ny === this.exitY) {
+    if (this.mode === GameMode.Puzzle && this.exitRevealed && this.playerX === this.exitX && this.playerY === this.exitY) {
       if (this.enemies.every(e => !e.alive)) {
         this.beginLevelTransition();
         return true;
@@ -900,6 +1016,11 @@ export class GameManager {
       range: this.blastRange,
       owner: 'player',
       remote: this.hasRemoteDetonate,
+      sliding: false,
+      slideDir: [0, 0],
+      slideSpeed: 0,
+      slideVisualX: this.playerX,
+      slideVisualY: this.playerY,
     });
     this.grid[this.playerY][this.playerX] = CellType.Bomb;
     this.activeBombs++;
@@ -925,6 +1046,8 @@ export class GameManager {
     enemyTeleported: EnemyData | null;
     laserFired: LaserData[];
     conveyorPush: boolean;
+    bombKicked: BombData | null;
+    playerWarped: boolean;
   } {
     const result = {
       exploded: [] as BombData[],
@@ -937,6 +1060,8 @@ export class GameManager {
       enemyTeleported: null as EnemyData | null,
       laserFired: [] as LaserData[],
       conveyorPush: false,
+      bombKicked: null as BombData | null,
+      playerWarped: false,
     };
 
     if (this.state === GameState.LevelTransition) {
@@ -977,6 +1102,49 @@ export class GameManager {
     // Update bombs
     for (let i = this.bombs.length - 1; i >= 0; i--) {
       const bomb = this.bombs[i];
+
+      // Sliding bomb movement
+      if (bomb.sliding) {
+        const moveAmount = bomb.slideSpeed * delta;
+        const nx = bomb.x + bomb.slideDir[0];
+        const ny = bomb.y + bomb.slideDir[1];
+
+        // Check if next cell is clear
+        if (nx >= 0 && nx < GRID_W && ny >= 0 && ny < GRID_H &&
+            this.grid[ny][nx] !== CellType.HardBlock &&
+            this.grid[ny][nx] !== CellType.SoftBlock &&
+            this.grid[ny][nx] !== CellType.Bomb &&
+            !this.enemies.some(e => e.alive && e.x === nx && e.y === ny)) {
+          // Move the bomb
+          this.grid[bomb.y][bomb.x] = CellType.Empty;
+          bomb.x = nx;
+          bomb.y = ny;
+          this.grid[bomb.y][bomb.x] = CellType.Bomb;
+          bomb.slideVisualX += bomb.slideDir[0] * moveAmount;
+          bomb.slideVisualY += bomb.slideDir[1] * moveAmount;
+          // Snap visual if close enough
+          const vdx = bomb.x - bomb.slideVisualX;
+          const vdy = bomb.y - bomb.slideVisualY;
+          if (Math.abs(vdx) < 0.1 && Math.abs(vdy) < 0.1) {
+            bomb.slideVisualX = bomb.x;
+            bomb.slideVisualY = bomb.y;
+          }
+        } else {
+          // Stop sliding
+          bomb.sliding = false;
+          bomb.slideVisualX = bomb.x;
+          bomb.slideVisualY = bomb.y;
+          // Hit enemy? Explode immediately
+          if (this.enemies.some(e => e.alive && e.x === nx && e.y === ny)) {
+            bomb.timer = 0;
+          }
+        }
+      } else {
+        // Lerp visual to grid pos
+        bomb.slideVisualX += (bomb.x - bomb.slideVisualX) * Math.min(1, 10 * delta);
+        bomb.slideVisualY += (bomb.y - bomb.slideVisualY) * Math.min(1, 10 * delta);
+      }
+
       bomb.timer -= delta;
       if (bomb.timer <= 0) {
         result.exploded.push(bomb);
@@ -1006,6 +1174,27 @@ export class GameManager {
 
     // Update conveyors
     this.updateConveyors(delta, result);
+
+    // Update warp portal cooldowns
+    for (const portal of this.warpPortals) {
+      if (portal.cooldown > 0) portal.cooldown -= delta;
+    }
+
+    // Update score popups
+    for (let i = this.scorePopups.length - 1; i >= 0; i--) {
+      this.scorePopups[i].age += delta;
+      if (this.scorePopups[i].age > 1.5) {
+        this.scorePopups.splice(i, 1);
+      }
+    }
+
+    // Update achievement notifications
+    for (let i = this.achievementNotifications.length - 1; i >= 0; i--) {
+      this.achievementNotifications[i].timer -= delta;
+      if (this.achievementNotifications[i].timer <= 0) {
+        this.achievementNotifications.splice(i, 1);
+      }
+    }
 
     // Update danger zones
     this.computeDangerZones();
@@ -1090,6 +1279,7 @@ export class GameManager {
           this.blocksDestroyed++;
           this.totalBlocksDestroyed++;
           this.score += 10 * this.multiplier;
+          this.addScorePopup(ex, ey, 10 * this.multiplier, 0xff8800);
           this.comboCount++;
           this.comboTimer = 2.0;
           if (this.comboCount > this.maxCombo) this.maxCombo = this.comboCount;
@@ -1102,8 +1292,8 @@ export class GameManager {
           // Chance to drop power-up
           if (Math.random() < 0.3) {
             const types = [PowerUpType.ExtraBomb, PowerUpType.BlastRange, PowerUpType.Speed,
-              PowerUpType.PassThrough, PowerUpType.RemoteDetonate, PowerUpType.Shield];
-            const weights = [3, 3, 2, 1, 1, 1];
+              PowerUpType.PassThrough, PowerUpType.RemoteDetonate, PowerUpType.Shield, PowerUpType.BombKick];
+            const weights = [3, 3, 2, 1, 1, 1, 1];
             const total = weights.reduce((a, b) => a + b, 0);
             let rnd = Math.random() * total;
             let pType = types[0];
@@ -1172,7 +1362,9 @@ export class GameManager {
             enemy.type === 'teleporter' ? 400 :
             enemy.type === 'patrol' ? 250 : 100;
           if (enemy.isBoss) baseScore = 2000 + this.level * 500;
-          this.score += baseScore * this.multiplier * (1 + this.comboCount * 0.5);
+          const totalScore = Math.floor(baseScore * this.multiplier * (1 + this.comboCount * 0.5));
+          this.score += totalScore;
+          this.addScorePopup(Math.round(enemy.visualX), Math.round(enemy.visualY), totalScore, enemy.isBoss ? 0xffcc00 : 0x00ff88);
           this.multiplier = Math.min(this.multiplier + 1, 8);
           this.multiplierTimer = 5.0;
           if (this.multiplier > this.maxMultiplier) this.maxMultiplier = this.multiplier;
@@ -1474,8 +1666,17 @@ export class GameManager {
       range: 1 + this.difficulty,
       owner: 'enemy',
       remote: false,
+      sliding: false,
+      slideDir: [0, 0],
+      slideSpeed: 0,
+      slideVisualX: enemy.x,
+      slideVisualY: enemy.y,
     });
     this.grid[enemy.y][enemy.x] = CellType.Bomb;
+  }
+
+  addScorePopup(gx: number, gy: number, value: number, color: number) {
+    this.scorePopups.push({ x: gx, y: gy, value, age: 0, color });
   }
 
   private collectPowerUp(index: number) {
@@ -1503,6 +1704,9 @@ export class GameManager {
       case PowerUpType.Shield:
         this.hasShield = true;
         this.shieldTimer = 15;
+        break;
+      case PowerUpType.BombKick:
+        this.hasBombKick = true;
         break;
     }
   }
@@ -1612,11 +1816,18 @@ export class GameManager {
       { id: 'boss_flawless', name: 'Flawless Boss', cond: () => this.bossesKilled >= 1 && this.lives === (this.mode === GameMode.Survival ? 1 : 3) },
       { id: 'boss_desperate', name: 'Pushed to the Edge', cond: () => this.enemies.some(e => e.isBoss && !e.alive && e.bossPhase >= 2) },
       { id: 'puzzle_10', name: 'Puzzle Legend', cond: () => this.mode === GameMode.Puzzle && this.level >= 10 },
+      // Round 4 achievements
+      { id: 'bomb_kick', name: 'Kick Start', cond: () => this.hasBombKick },
+      { id: 'warp_used', name: 'Warp Drive', cond: () => this.level >= 5 && this.warpPortals.length > 0 },
+      { id: 'score_500k', name: 'Half Million', cond: () => this.totalScore >= 500000 },
+      { id: 'multi_x6', name: 'Hex Damage', cond: () => this.maxMultiplier >= 6 },
+      { id: 'level_25', name: 'Transcendent', cond: () => this.level >= 25 },
     ];
 
     for (const check of checks) {
       if (!this.achievements.includes(check.id) && check.cond()) {
         this.achievements.push(check.id);
+        this.achievementNotifications.push({ name: check.name, timer: 3.0 });
       }
     }
   }
@@ -1647,11 +1858,13 @@ export class GameManager {
       blocks_2000: 'Obliterator', bombs_500: 'Pyromaniac',
       boss_kill: 'Boss Slayer', boss_kill_3: 'Boss Crusher', boss_flawless: 'Flawless Boss',
       boss_desperate: 'Pushed to the Edge', puzzle_10: 'Puzzle Legend',
+      bomb_kick: 'Kick Start', warp_used: 'Warp Drive',
+      score_500k: 'Half Million', multi_x6: 'Hex Damage', level_25: 'Transcendent',
     };
     return names[id] || id;
   }
 
-  get totalAchievementCount() { return 65; }
+  get totalAchievementCount() { return 70; }
 
   getEnemyCountForNextLevel(): number {
     return 2 + (this.level + 1) + this.difficulty;
