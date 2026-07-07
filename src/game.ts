@@ -11,6 +11,7 @@ export enum CellType {
   Bomb = 3,
   Explosion = 4,
   PowerUp = 5,
+  Exit = 6,
 }
 
 export enum PowerUpType {
@@ -28,6 +29,7 @@ export enum GameState {
   Paused = 2,
   GameOver = 3,
   Victory = 4,
+  LevelTransition = 5,
 }
 
 export enum GameMode {
@@ -60,10 +62,13 @@ export interface EnemyData {
   moveTimer: number;
   moveSpeed: number;
   alive: boolean;
-  type: 'wander' | 'chase' | 'bomber';
+  type: 'wander' | 'chase' | 'bomber' | 'patrol' | 'teleporter';
   visualX: number;
   visualY: number;
   bombCooldown: number;
+  patrolDir: number; // for patrol type
+  teleportCooldown: number; // for teleporter type
+  hp: number;
 }
 
 export interface PowerUpData {
@@ -72,6 +77,108 @@ export interface PowerUpData {
   type: PowerUpType;
   collected: boolean;
 }
+
+// Puzzle level definitions
+interface PuzzleLevel {
+  name: string;
+  softBlocks: Array<[number, number]>;
+  enemies: Array<{ x: number; y: number; type: EnemyData['type'] }>;
+  powerUps: Array<{ x: number; y: number; type: PowerUpType }>;
+  exitPos: [number, number];
+  maxBombs: number;
+  blastRange: number;
+  timeLimit: number;
+  hint: string;
+}
+
+const PUZZLE_LEVELS: PuzzleLevel[] = [
+  {
+    name: 'The Corridor',
+    softBlocks: [[3, 1], [3, 2], [3, 3], [3, 4], [3, 5], [5, 5], [5, 6], [5, 7], [5, 8], [5, 9],
+      [7, 1], [7, 2], [7, 3], [7, 4], [7, 5], [9, 5], [9, 6], [9, 7], [9, 8], [9, 9]],
+    enemies: [{ x: 11, y: 9, type: 'wander' }],
+    powerUps: [{ x: 5, y: 3, type: PowerUpType.BlastRange }],
+    exitPos: [11, 9],
+    maxBombs: 1,
+    blastRange: 2,
+    timeLimit: 90,
+    hint: 'Blast through the corridor walls',
+  },
+  {
+    name: 'Chain Reaction',
+    softBlocks: [[1, 3], [2, 3], [3, 3], [5, 3], [7, 3], [9, 3], [11, 3],
+      [1, 7], [3, 7], [5, 7], [7, 7], [9, 7], [10, 7], [11, 7]],
+    enemies: [{ x: 11, y: 1, type: 'chase' }, { x: 11, y: 9, type: 'wander' }],
+    powerUps: [{ x: 3, y: 1, type: PowerUpType.ExtraBomb }],
+    exitPos: [11, 5],
+    maxBombs: 2,
+    blastRange: 3,
+    timeLimit: 120,
+    hint: 'Use chain explosions to clear the path',
+  },
+  {
+    name: 'The Gauntlet',
+    softBlocks: [[1, 3], [1, 5], [1, 7], [3, 1], [3, 3], [3, 5], [3, 7], [3, 9],
+      [5, 1], [5, 3], [5, 5], [5, 7], [5, 9], [7, 1], [7, 3], [7, 5], [7, 7], [7, 9],
+      [9, 1], [9, 3], [9, 5], [9, 7], [9, 9], [11, 3], [11, 5], [11, 7]],
+    enemies: [
+      { x: 5, y: 1, type: 'patrol' },
+      { x: 7, y: 5, type: 'chase' },
+      { x: 9, y: 9, type: 'bomber' },
+      { x: 11, y: 1, type: 'teleporter' },
+    ],
+    powerUps: [
+      { x: 3, y: 1, type: PowerUpType.Speed },
+      { x: 7, y: 9, type: PowerUpType.Shield },
+    ],
+    exitPos: [11, 9],
+    maxBombs: 2,
+    blastRange: 2,
+    timeLimit: 180,
+    hint: 'Navigate the maze while avoiding four enemy types',
+  },
+  {
+    name: 'Demolition Derby',
+    softBlocks: [],
+    enemies: [
+      { x: 3, y: 3, type: 'bomber' },
+      { x: 9, y: 3, type: 'bomber' },
+      { x: 3, y: 7, type: 'bomber' },
+      { x: 9, y: 7, type: 'bomber' },
+      { x: 6, y: 5, type: 'chase' },
+    ],
+    powerUps: [
+      { x: 1, y: 5, type: PowerUpType.Shield },
+      { x: 11, y: 5, type: PowerUpType.ExtraBomb },
+    ],
+    exitPos: [6, 1],
+    maxBombs: 3,
+    blastRange: 3,
+    timeLimit: 150,
+    hint: 'Survive and eliminate all bomber enemies',
+  },
+  {
+    name: 'Remote Control',
+    softBlocks: [[2, 1], [2, 2], [2, 3], [2, 4], [2, 5], [2, 6], [2, 7], [2, 8], [2, 9],
+      [4, 1], [4, 3], [4, 5], [4, 7], [4, 9],
+      [6, 1], [6, 3], [6, 5], [6, 7], [6, 9],
+      [8, 1], [8, 3], [8, 5], [8, 7], [8, 9],
+      [10, 1], [10, 2], [10, 3], [10, 5], [10, 7], [10, 8], [10, 9]],
+    enemies: [
+      { x: 11, y: 1, type: 'teleporter' },
+      { x: 11, y: 9, type: 'patrol' },
+    ],
+    powerUps: [
+      { x: 1, y: 3, type: PowerUpType.RemoteDetonate },
+      { x: 5, y: 5, type: PowerUpType.PassThrough },
+    ],
+    exitPos: [11, 5],
+    maxBombs: 1,
+    blastRange: 4,
+    timeLimit: 150,
+    hint: 'Use remote detonate for precision strikes',
+  },
+];
 
 export class GameManager {
   grid: CellType[][] = [];
@@ -108,6 +215,18 @@ export class GameManager {
   state = GameState.Menu;
   mode = GameMode.Classic;
 
+  // Level transition
+  transitionTimer = 0;
+  transitionDuration = 2.5;
+
+  // Exit tile for puzzle mode
+  exitX = -1;
+  exitY = -1;
+  exitRevealed = false;
+
+  // Puzzle hint
+  puzzleHint = '';
+
   // Achievement tracking
   achievements: string[] = [];
   totalGames = 0;
@@ -116,6 +235,11 @@ export class GameManager {
   maxCombo = 0;
   totalEnemiesKilled = 0;
   perfectClears = 0;
+  totalBlocksDestroyed = 0;
+  totalPowerUpsCollected = 0;
+  totalBombsPlaced = 0;
+  longestSurvivalTime = 0;
+  fastestLevelClear = 9999;
 
   // Settings
   sfxVolume = 0.7;
@@ -133,6 +257,58 @@ export class GameManager {
   ];
 
   get currentTheme() { return this.themes[this.themeIndex]; }
+
+  constructor() {
+    this.loadHighScores();
+  }
+
+  // Persistence
+  loadHighScores() {
+    try {
+      const data = localStorage.getItem('neon-bomber-save');
+      if (data) {
+        const save = JSON.parse(data);
+        this.bestScore = save.bestScore || 0;
+        this.totalScore = save.totalScore || 0;
+        this.totalGames = save.totalGames || 0;
+        this.totalEnemiesKilled = save.totalEnemiesKilled || 0;
+        this.totalBlocksDestroyed = save.totalBlocksDestroyed || 0;
+        this.totalPowerUpsCollected = save.totalPowerUpsCollected || 0;
+        this.totalBombsPlaced = save.totalBombsPlaced || 0;
+        this.perfectClears = save.perfectClears || 0;
+        this.maxCombo = save.maxCombo || 0;
+        this.longestSurvivalTime = save.longestSurvivalTime || 0;
+        this.fastestLevelClear = save.fastestLevelClear || 9999;
+        this.achievements = save.achievements || [];
+        this.difficulty = save.difficulty ?? 1;
+        this.themeIndex = save.themeIndex ?? 0;
+        this.sfxVolume = save.sfxVolume ?? 0.7;
+      }
+    } catch { /* localStorage may not be available */ }
+  }
+
+  saveHighScores() {
+    try {
+      const save = {
+        bestScore: this.bestScore,
+        totalScore: this.totalScore,
+        totalGames: this.totalGames,
+        totalEnemiesKilled: this.totalEnemiesKilled,
+        totalBlocksDestroyed: this.totalBlocksDestroyed,
+        totalPowerUpsCollected: this.totalPowerUpsCollected,
+        totalBombsPlaced: this.totalBombsPlaced,
+        perfectClears: this.perfectClears,
+        maxCombo: this.maxCombo,
+        longestSurvivalTime: this.longestSurvivalTime,
+        fastestLevelClear: this.fastestLevelClear,
+        achievements: this.achievements,
+        difficulty: this.difficulty,
+        themeIndex: this.themeIndex,
+        sfxVolume: this.sfxVolume,
+      };
+      localStorage.setItem('neon-bomber-save', JSON.stringify(save));
+    } catch { /* localStorage may not be available */ }
+  }
 
   initGrid() {
     this.grid = [];
@@ -173,6 +349,85 @@ export class GameManager {
     }
   }
 
+  initPuzzleGrid(puzzleIndex: number) {
+    const puzzle = PUZZLE_LEVELS[puzzleIndex % PUZZLE_LEVELS.length];
+    this.puzzleHint = puzzle.hint;
+
+    this.grid = [];
+    for (let y = 0; y < GRID_H; y++) {
+      this.grid[y] = [];
+      for (let x = 0; x < GRID_W; x++) {
+        if (x % 2 === 0 && y % 2 === 0) {
+          this.grid[y][x] = CellType.HardBlock;
+        } else {
+          this.grid[y][x] = CellType.Empty;
+        }
+      }
+    }
+
+    // Border walls
+    for (let y = 0; y < GRID_H; y++) {
+      for (let x = 0; x < GRID_W; x++) {
+        if (x === 0 || x === GRID_W - 1 || y === 0 || y === GRID_H - 1) {
+          this.grid[y][x] = CellType.HardBlock;
+        }
+      }
+    }
+
+    // Place puzzle soft blocks
+    for (const [bx, by] of puzzle.softBlocks) {
+      if (bx >= 0 && bx < GRID_W && by >= 0 && by < GRID_H && this.grid[by][bx] === CellType.Empty) {
+        this.grid[by][bx] = CellType.SoftBlock;
+      }
+    }
+
+    // Spawn puzzle enemies
+    this.enemies = [];
+    for (const eData of puzzle.enemies) {
+      this.enemies.push({
+        x: eData.x, y: eData.y,
+        targetX: eData.x, targetY: eData.y,
+        moveTimer: 0,
+        moveSpeed: 0.8 + this.difficulty * 0.2,
+        alive: true,
+        type: eData.type,
+        visualX: eData.x, visualY: eData.y,
+        bombCooldown: 0,
+        patrolDir: 0,
+        teleportCooldown: 5,
+        hp: eData.type === 'teleporter' ? 2 : 1,
+      });
+    }
+
+    // Place puzzle power-ups
+    this.powerUps = [];
+    for (const puData of puzzle.powerUps) {
+      this.powerUps.push({
+        x: puData.x, y: puData.y,
+        type: puData.type,
+        collected: false,
+      });
+      this.grid[puData.y][puData.x] = CellType.PowerUp;
+    }
+
+    // Set puzzle constraints
+    this.maxBombs = puzzle.maxBombs;
+    this.blastRange = puzzle.blastRange;
+    this.timeLimit = puzzle.timeLimit;
+
+    // Exit position (hidden under last soft block, or placed at exit if no blocks above it)
+    this.exitX = puzzle.exitPos[0];
+    this.exitY = puzzle.exitPos[1];
+    this.exitRevealed = false;
+
+    // Clear player spawn area
+    for (const [cx, cy] of [[1, 1], [2, 1], [1, 2]]) {
+      if (this.grid[cy][cx] === CellType.SoftBlock) {
+        this.grid[cy][cx] = CellType.Empty;
+      }
+    }
+  }
+
   spawnEnemies() {
     this.enemies = [];
     const count = 2 + this.level + this.difficulty;
@@ -184,21 +439,36 @@ export class GameManager {
       { x: Math.floor(GRID_W / 2), y: GRID_H - 2 },
       { x: 1, y: Math.floor(GRID_H / 2) },
       { x: GRID_W - 2, y: Math.floor(GRID_H / 2) },
+      { x: 3, y: 1 },
+      { x: GRID_W - 4, y: GRID_H - 2 },
     ];
 
-    const types: Array<'wander' | 'chase' | 'bomber'> = ['wander', 'chase', 'bomber'];
+    const types: Array<EnemyData['type']> = ['wander', 'chase', 'bomber', 'patrol', 'teleporter'];
     for (let i = 0; i < Math.min(count, spawns.length); i++) {
       const sp = spawns[i];
-      const type = types[i % types.length];
+      // Introduce patrol/teleporter in later levels
+      let type: EnemyData['type'];
+      if (this.level <= 2) {
+        type = types[i % 3]; // wander, chase, bomber only
+      } else if (this.level <= 4) {
+        type = types[i % 4]; // add patrol
+      } else {
+        type = types[i % 5]; // all types
+      }
+      const speedBase = 0.8 + this.difficulty * 0.3;
+      const speedMod = type === 'chase' ? 0.3 : type === 'patrol' ? 0.1 : type === 'teleporter' ? -0.2 : 0;
       this.enemies.push({
         x: sp.x, y: sp.y,
         targetX: sp.x, targetY: sp.y,
         moveTimer: 0,
-        moveSpeed: 0.8 + this.difficulty * 0.3 + (type === 'chase' ? 0.3 : 0),
+        moveSpeed: speedBase + speedMod,
         alive: true,
         type,
         visualX: sp.x, visualY: sp.y,
         bombCooldown: 0,
+        patrolDir: 0,
+        teleportCooldown: 6 + Math.random() * 4,
+        hp: type === 'teleporter' ? 2 : 1,
       });
     }
   }
@@ -212,7 +482,7 @@ export class GameManager {
     this.enemiesKilled = 0;
     this.blocksDestroyed = 0;
     this.timeElapsed = 0;
-    this.timeLimit = mode === GameMode.Timed ? 120 : 9999;
+    this.timeLimit = mode === GameMode.Timed ? 120 : mode === GameMode.Puzzle ? 90 : 9999;
     this.maxBombs = 1;
     this.activeBombs = 0;
     this.blastRange = 2;
@@ -226,6 +496,10 @@ export class GameManager {
     this.bombs = [];
     this.explosions = [];
     this.powerUps = [];
+    this.exitX = -1;
+    this.exitY = -1;
+    this.exitRevealed = false;
+    this.puzzleHint = '';
     this.totalGames++;
 
     this.playerX = 1;
@@ -234,28 +508,55 @@ export class GameManager {
     this.playerVisualY = 1;
     this.playerMoveTimer = 0;
 
-    this.initGrid();
-    this.spawnEnemies();
+    if (mode === GameMode.Puzzle) {
+      this.initPuzzleGrid(0);
+    } else {
+      this.initGrid();
+      this.spawnEnemies();
+    }
+
+    this.saveHighScores();
+  }
+
+  beginLevelTransition() {
+    this.state = GameState.LevelTransition;
+    this.transitionTimer = this.transitionDuration;
   }
 
   nextLevel() {
     this.level++;
     this.bombs = [];
     this.explosions = [];
-    this.powerUps = [];
     this.activeBombs = 0;
     this.playerX = 1;
     this.playerY = 1;
     this.playerVisualX = 1;
     this.playerVisualY = 1;
     this.playerMoveTimer = 0;
+    this.exitX = -1;
+    this.exitY = -1;
+    this.exitRevealed = false;
 
-    this.initGrid();
-    this.spawnEnemies();
+    if (this.mode === GameMode.Puzzle) {
+      // Keep existing power-up states but reset placement
+      this.powerUps = [];
+      this.initPuzzleGrid(this.level - 1);
+    } else {
+      this.powerUps = [];
+      this.initGrid();
+      this.spawnEnemies();
+    }
 
     // Level bonus
     this.score += this.level * 500;
+
+    // Track fastest clear
+    if (this.timeElapsed < this.fastestLevelClear) {
+      this.fastestLevelClear = this.timeElapsed;
+    }
+
     this.checkAchievements();
+    this.state = GameState.Playing;
   }
 
   canMove(x: number, y: number): boolean {
@@ -267,7 +568,7 @@ export class GameManager {
     return true;
   }
 
-  movePlayer(dx: number, dy: number, delta: number): boolean {
+  movePlayer(dx: number, dy: number, _delta: number): boolean {
     if (this.state !== GameState.Playing) return false;
     if (this.playerMoveTimer > 0) return false;
 
@@ -283,6 +584,14 @@ export class GameManager {
     const pIdx = this.powerUps.findIndex(p => p.x === nx && p.y === ny && !p.collected);
     if (pIdx >= 0) {
       this.collectPowerUp(pIdx);
+    }
+
+    // Check puzzle exit
+    if (this.mode === GameMode.Puzzle && this.exitRevealed && nx === this.exitX && ny === this.exitY) {
+      if (this.enemies.every(e => !e.alive)) {
+        this.beginLevelTransition();
+        return true;
+      }
     }
 
     // Check enemy collision
@@ -306,6 +615,7 @@ export class GameManager {
     });
     this.grid[this.playerY][this.playerX] = CellType.Bomb;
     this.activeBombs++;
+    this.totalBombsPlaced++;
     return true;
   }
 
@@ -316,15 +626,34 @@ export class GameManager {
     }
   }
 
-  update(delta: number): { exploded: BombData[], destroyed: Array<{x: number, y: number}>, powerUpsSpawned: PowerUpData[], enemiesHit: EnemyData[], playerHit: boolean, levelComplete: boolean } {
+  update(delta: number): {
+    exploded: BombData[];
+    destroyed: Array<{ x: number; y: number }>;
+    powerUpsSpawned: PowerUpData[];
+    enemiesHit: EnemyData[];
+    playerHit: boolean;
+    levelComplete: boolean;
+    exitRevealedNow: boolean;
+    enemyTeleported: EnemyData | null;
+  } {
     const result = {
       exploded: [] as BombData[],
-      destroyed: [] as Array<{x: number, y: number}>,
+      destroyed: [] as Array<{ x: number; y: number }>,
       powerUpsSpawned: [] as PowerUpData[],
       enemiesHit: [] as EnemyData[],
       playerHit: false,
       levelComplete: false,
+      exitRevealedNow: false,
+      enemyTeleported: null as EnemyData | null,
     };
+
+    if (this.state === GameState.LevelTransition) {
+      this.transitionTimer -= delta;
+      if (this.transitionTimer <= 0) {
+        this.nextLevel();
+      }
+      return result;
+    }
 
     if (this.state !== GameState.Playing) return result;
 
@@ -336,8 +665,13 @@ export class GameManager {
       if (this.comboTimer <= 0) this.comboCount = 0;
     }
 
+    // Track survival time
+    if (this.mode === GameMode.Survival && this.timeElapsed > this.longestSurvivalTime) {
+      this.longestSurvivalTime = this.timeElapsed;
+    }
+
     // Timed mode check
-    if (this.mode === GameMode.Timed && this.timeElapsed >= this.timeLimit) {
+    if ((this.mode === GameMode.Timed || this.mode === GameMode.Puzzle) && this.timeElapsed >= this.timeLimit) {
       this.state = GameState.GameOver;
       this.updateStats();
       return result;
@@ -375,17 +709,40 @@ export class GameManager {
     // Update enemies
     this.updateEnemies(delta, result);
 
+    // Check exit reveal for puzzle mode
+    if (this.mode === GameMode.Puzzle && !this.exitRevealed && this.exitX >= 0) {
+      // Reveal exit when the cell at exit position is cleared
+      if (this.grid[this.exitY][this.exitX] === CellType.Empty) {
+        this.exitRevealed = true;
+        this.grid[this.exitY][this.exitX] = CellType.Exit;
+        result.exitRevealedNow = true;
+      }
+    }
+
     // Check level complete
-    if (this.enemies.every(e => !e.alive)) {
-      if (this.mode === GameMode.Survival) {
-        this.nextLevel();
+    const allDead = this.enemies.every(e => !e.alive);
+    if (allDead) {
+      if (this.mode === GameMode.Puzzle) {
+        // In puzzle mode, must reach exit
+        if (this.exitRevealed && this.playerX === this.exitX && this.playerY === this.exitY) {
+          result.levelComplete = true;
+          if (this.level >= PUZZLE_LEVELS.length) {
+            this.state = GameState.Victory;
+            this.score += 10000;
+          } else {
+            this.beginLevelTransition();
+          }
+        }
+        // else: wait for player to reach exit
+      } else if (this.mode === GameMode.Survival) {
+        this.beginLevelTransition();
       } else {
         result.levelComplete = true;
         if (this.level >= 5 + this.difficulty * 2) {
           this.state = GameState.Victory;
           this.score += 5000;
         } else {
-          this.nextLevel();
+          this.beginLevelTransition();
         }
       }
     }
@@ -393,9 +750,9 @@ export class GameManager {
     return result;
   }
 
-  private explodeBomb(bomb: BombData, result: { destroyed: Array<{x: number, y: number}>, powerUpsSpawned: PowerUpData[], enemiesHit: EnemyData[], playerHit: boolean }) {
+  private explodeBomb(bomb: BombData, result: { destroyed: Array<{ x: number; y: number }>; powerUpsSpawned: PowerUpData[]; enemiesHit: EnemyData[]; playerHit: boolean; exitRevealedNow: boolean }) {
     const dirs = [[0, 0], [1, 0], [-1, 0], [0, 1], [0, -1]];
-    const explosionCells: Array<{x: number, y: number}> = [];
+    const explosionCells: Array<{ x: number; y: number }> = [];
 
     for (const [dx, dy] of dirs) {
       for (let r = 0; r <= bomb.range; r++) {
@@ -411,10 +768,16 @@ export class GameManager {
           this.grid[ey][ex] = CellType.Explosion;
           result.destroyed.push({ x: ex, y: ey });
           this.blocksDestroyed++;
+          this.totalBlocksDestroyed++;
           this.score += 10;
           this.comboCount++;
           this.comboTimer = 2.0;
           if (this.comboCount > this.maxCombo) this.maxCombo = this.comboCount;
+
+          // Check if this reveals the exit in puzzle mode
+          if (this.mode === GameMode.Puzzle && ex === this.exitX && ey === this.exitY) {
+            // Will be revealed after explosion clears
+          }
 
           // Chance to drop power-up
           if (Math.random() < 0.3) {
@@ -462,12 +825,11 @@ export class GameManager {
           this.state = GameState.GameOver;
           this.updateStats();
         } else {
-          // Respawn at safe spot
           this.playerX = 1;
           this.playerY = 1;
           this.playerVisualX = 1;
           this.playerVisualY = 1;
-          this.shieldTimer = 3.0; // Brief invincibility
+          this.shieldTimer = 3.0;
           this.hasShield = true;
         }
       }
@@ -476,17 +838,23 @@ export class GameManager {
     // Check enemies hit
     for (const enemy of this.enemies) {
       if (!enemy.alive) continue;
-      const ex = Math.round(enemy.visualX);
-      const ey = Math.round(enemy.visualY);
-      if (explosionCells.some(c => c.x === ex && c.y === ey)) {
-        enemy.alive = false;
-        this.enemiesKilled++;
-        this.totalEnemiesKilled++;
-        const baseScore = enemy.type === 'bomber' ? 300 : enemy.type === 'chase' ? 200 : 100;
-        this.score += baseScore * (1 + this.comboCount * 0.5);
-        this.comboCount++;
-        this.comboTimer = 2.0;
-        result.enemiesHit.push(enemy);
+      const eex = Math.round(enemy.visualX);
+      const eey = Math.round(enemy.visualY);
+      if (explosionCells.some(c => c.x === eex && c.y === eey)) {
+        enemy.hp--;
+        if (enemy.hp <= 0) {
+          enemy.alive = false;
+          this.enemiesKilled++;
+          this.totalEnemiesKilled++;
+          const baseScore = enemy.type === 'bomber' ? 300 :
+            enemy.type === 'chase' ? 200 :
+            enemy.type === 'teleporter' ? 400 :
+            enemy.type === 'patrol' ? 250 : 100;
+          this.score += baseScore * (1 + this.comboCount * 0.5);
+          this.comboCount++;
+          this.comboTimer = 2.0;
+          result.enemiesHit.push(enemy);
+        }
       }
     }
 
@@ -494,7 +862,7 @@ export class GameManager {
     this.checkAchievements();
   }
 
-  private updateEnemies(delta: number, result: { enemiesHit: EnemyData[], playerHit: boolean }) {
+  private updateEnemies(delta: number, result: { enemiesHit: EnemyData[]; playerHit: boolean; enemyTeleported: EnemyData | null }) {
     for (const enemy of this.enemies) {
       if (!enemy.alive) continue;
 
@@ -505,45 +873,37 @@ export class GameManager {
       enemy.visualX += (enemy.x - enemy.visualX) * Math.min(1, 8 * delta);
       enemy.visualY += (enemy.y - enemy.visualY) * Math.min(1, 8 * delta);
 
+      // Teleporter logic
+      if (enemy.type === 'teleporter') {
+        enemy.teleportCooldown -= delta;
+        if (enemy.teleportCooldown <= 0) {
+          this.teleportEnemy(enemy);
+          enemy.teleportCooldown = 5 + Math.random() * 5;
+          result.enemyTeleported = enemy;
+        }
+      }
+
       if (enemy.moveTimer <= 0) {
         enemy.moveTimer = 1.0 / enemy.moveSpeed;
 
         if (enemy.type === 'chase') {
-          // Move toward player
-          const dx = this.playerX - enemy.x;
-          const dy = this.playerY - enemy.y;
-          const moves: Array<[number, number]> = [];
-          if (Math.abs(dx) >= Math.abs(dy)) {
-            moves.push([Math.sign(dx), 0], [0, Math.sign(dy) || 1]);
-          } else {
-            moves.push([0, Math.sign(dy)], [Math.sign(dx) || 1, 0]);
-          }
-          moves.push([-Math.sign(dx) || 1, 0], [0, -Math.sign(dy) || 1]);
-
-          let moved = false;
-          for (const [mx, my] of moves) {
-            const nx = enemy.x + mx;
-            const ny = enemy.y + my;
-            if (this.canMoveEnemy(nx, ny)) {
-              enemy.x = nx;
-              enemy.y = ny;
-              moved = true;
-              break;
-            }
-          }
-          if (!moved) {
-            // Random fallback
-            this.randomMoveEnemy(enemy);
-          }
+          this.chaseMoveEnemy(enemy);
         } else if (enemy.type === 'bomber') {
-          // Move randomly but place bombs
           this.randomMoveEnemy(enemy);
           if (enemy.bombCooldown <= 0 && Math.random() < 0.3) {
             this.placeEnemyBomb(enemy);
             enemy.bombCooldown = 4.0;
           }
+        } else if (enemy.type === 'patrol') {
+          this.patrolMoveEnemy(enemy);
+        } else if (enemy.type === 'teleporter') {
+          // Teleporters chase slowly
+          if (Math.random() < 0.6) {
+            this.chaseMoveEnemy(enemy);
+          } else {
+            this.randomMoveEnemy(enemy);
+          }
         } else {
-          // Wander randomly
           this.randomMoveEnemy(enemy);
         }
 
@@ -572,10 +932,86 @@ export class GameManager {
     }
   }
 
+  private chaseMoveEnemy(enemy: EnemyData) {
+    const dx = this.playerX - enemy.x;
+    const dy = this.playerY - enemy.y;
+    const moves: Array<[number, number]> = [];
+    if (Math.abs(dx) >= Math.abs(dy)) {
+      moves.push([Math.sign(dx), 0], [0, Math.sign(dy) || 1]);
+    } else {
+      moves.push([0, Math.sign(dy)], [Math.sign(dx) || 1, 0]);
+    }
+    moves.push([-Math.sign(dx) || 1, 0], [0, -Math.sign(dy) || 1]);
+
+    let moved = false;
+    for (const [mx, my] of moves) {
+      const nx = enemy.x + mx;
+      const ny = enemy.y + my;
+      if (this.canMoveEnemy(nx, ny)) {
+        enemy.x = nx;
+        enemy.y = ny;
+        moved = true;
+        break;
+      }
+    }
+    if (!moved) {
+      this.randomMoveEnemy(enemy);
+    }
+  }
+
+  private patrolMoveEnemy(enemy: EnemyData) {
+    // Patrols follow walls, changing direction when blocked
+    const dirMap: Array<[number, number]> = [[1, 0], [0, 1], [-1, 0], [0, -1]];
+    const [dx, dy] = dirMap[enemy.patrolDir % 4];
+    const nx = enemy.x + dx;
+    const ny = enemy.y + dy;
+
+    if (this.canMoveEnemy(nx, ny)) {
+      enemy.x = nx;
+      enemy.y = ny;
+    } else {
+      // Turn clockwise
+      enemy.patrolDir = (enemy.patrolDir + 1) % 4;
+      const [dx2, dy2] = dirMap[enemy.patrolDir];
+      const nx2 = enemy.x + dx2;
+      const ny2 = enemy.y + dy2;
+      if (this.canMoveEnemy(nx2, ny2)) {
+        enemy.x = nx2;
+        enemy.y = ny2;
+      } else {
+        // Turn again or stay
+        enemy.patrolDir = (enemy.patrolDir + 1) % 4;
+      }
+    }
+  }
+
+  private teleportEnemy(enemy: EnemyData) {
+    // Find a random empty cell to teleport to
+    const empties: Array<[number, number]> = [];
+    for (let y = 1; y < GRID_H - 1; y++) {
+      for (let x = 1; x < GRID_W - 1; x++) {
+        if (this.grid[y][x] === CellType.Empty) {
+          // Don't teleport next to player (at least 3 cells away)
+          const dist = Math.abs(x - this.playerX) + Math.abs(y - this.playerY);
+          if (dist >= 3) {
+            empties.push([x, y]);
+          }
+        }
+      }
+    }
+    if (empties.length > 0) {
+      const [tx, ty] = empties[Math.floor(Math.random() * empties.length)];
+      enemy.x = tx;
+      enemy.y = ty;
+      enemy.visualX = tx;
+      enemy.visualY = ty;
+    }
+  }
+
   private canMoveEnemy(x: number, y: number): boolean {
     if (x < 0 || x >= GRID_W || y < 0 || y >= GRID_H) return false;
     const cell = this.grid[y][x];
-    return cell === CellType.Empty || cell === CellType.PowerUp;
+    return cell === CellType.Empty || cell === CellType.PowerUp || cell === CellType.Exit;
   }
 
   private randomMoveEnemy(enemy: EnemyData) {
@@ -608,6 +1044,7 @@ export class GameManager {
     const pu = this.powerUps[index];
     pu.collected = true;
     this.score += 50;
+    this.totalPowerUpsCollected++;
 
     switch (pu.type) {
       case PowerUpType.ExtraBomb:
@@ -664,6 +1101,7 @@ export class GameManager {
     if (this.enemies.every(e => !e.alive) && this.lives > 0) {
       this.perfectClears++;
     }
+    this.saveHighScores();
   }
 
   checkAchievements() {
@@ -708,6 +1146,17 @@ export class GameManager {
       { id: 'no_bombs_die', name: 'Pacifist Death', cond: () => this.activeBombs === 0 && this.lives < 3 },
       { id: 'play_all_modes', name: 'Versatile', cond: () => this.totalGames >= 4 },
       { id: 'score_100k', name: 'Score: 100K', cond: () => this.totalScore >= 100000 },
+      // New achievements
+      { id: 'kill_teleporter', name: 'Phase Shifter', cond: () => this.enemies.some(e => !e.alive && e.type === 'teleporter') },
+      { id: 'kill_patrol', name: 'Route Breaker', cond: () => this.enemies.some(e => !e.alive && e.type === 'patrol') },
+      { id: 'puzzle_complete', name: 'Puzzle Master', cond: () => this.mode === GameMode.Puzzle && this.state === GameState.Victory },
+      { id: 'bombs_100', name: 'Bomb Happy', cond: () => this.totalBombsPlaced >= 100 },
+      { id: 'powerups_20', name: 'Collector', cond: () => this.totalPowerUpsCollected >= 20 },
+      { id: 'survive_10min', name: 'Endurance Runner', cond: () => this.timeElapsed >= 600 },
+      { id: 'combo_15', name: 'Combo Freak', cond: () => this.maxCombo >= 15 },
+      { id: 'level_15', name: 'Legend', cond: () => this.level >= 15 },
+      { id: 'blocks_1000', name: 'Total Destruction', cond: () => this.totalBlocksDestroyed >= 1000 },
+      { id: 'fast_clear', name: 'Speedster', cond: () => this.fastestLevelClear < 30 },
     ];
 
     for (const check of checks) {
@@ -733,7 +1182,17 @@ export class GameManager {
       remote_kill: 'Remote Assassin', passthrough: 'Ghost Walker', max_power: 'Maximum Power',
       quick_clear: 'Quick Clear', bomb_chain_3: 'Triple Chain',
       no_bombs_die: 'Pacifist Death', play_all_modes: 'Versatile', score_100k: 'Score: 100K',
+      kill_teleporter: 'Phase Shifter', kill_patrol: 'Route Breaker',
+      puzzle_complete: 'Puzzle Master', bombs_100: 'Bomb Happy', powerups_20: 'Collector',
+      survive_10min: 'Endurance Runner', combo_15: 'Combo Freak', level_15: 'Legend',
+      blocks_1000: 'Total Destruction', fast_clear: 'Speedster',
     };
     return names[id] || id;
+  }
+
+  get totalAchievementCount() { return 50; }
+
+  getEnemyCountForNextLevel(): number {
+    return 2 + (this.level + 1) + this.difficulty;
   }
 }

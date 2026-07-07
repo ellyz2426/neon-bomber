@@ -1,0 +1,48 @@
+<container
+  name="achievements-root"
+  flexDirection="column"
+  alignItems="center"
+  justifyContent="flex-start"
+  width="100%"
+  height="100%"
+  padding="16"
+  gap="6"
+  backgroundColor="#000811ee"
+  borderRadius="12"
+>
+  <text fontSize="22" color="#ffcc00" fontWeight="bold">ACHIEVEMENTS</text>
+  <text name="ach-count" fontSize="12" color="#88aacc">0 / 40 Unlocked</text>
+
+  <container flexDirection="column" gap="3" alignItems="flex-start" width="90%" marginTop="8">
+    <text name="ach-line-0" fontSize="10" color="#446688">---</text>
+    <text name="ach-line-1" fontSize="10" color="#446688">---</text>
+    <text name="ach-line-2" fontSize="10" color="#446688">---</text>
+    <text name="ach-line-3" fontSize="10" color="#446688">---</text>
+    <text name="ach-line-4" fontSize="10" color="#446688">---</text>
+    <text name="ach-line-5" fontSize="10" color="#446688">---</text>
+    <text name="ach-line-6" fontSize="10" color="#446688">---</text>
+    <text name="ach-line-7" fontSize="10" color="#446688">---</text>
+    <text name="ach-line-8" fontSize="10" color="#446688">---</text>
+    <text name="ach-line-9" fontSize="10" color="#446688">---</text>
+    <text name="ach-line-10" fontSize="10" color="#446688">---</text>
+    <text name="ach-line-11" fontSize="10" color="#446688">---</text>
+  </container>
+
+  <container flexDirection="column" gap="4" alignItems="center" marginTop="8" width="80%">
+    <text name="ach-stats" fontSize="11" color="#4488aa">Games: 0 -- Best: 0 -- Total Kills: 0</text>
+  </container>
+
+  <text
+    name="btn-ach-back"
+    fontSize="16"
+    color="#8888aa"
+    backgroundColor="#111122"
+    padding="8"
+    borderRadius="6"
+    width="80%"
+    textAlign="center"
+    cursor="pointer"
+    marginTop="6"
+    hover-backgroundColor="#222244"
+  >BACK</text>
+</container>

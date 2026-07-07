@@ -1,12 +1,12 @@
 {
   "schemaVersion": 2,
-  "sessionId": "bf7070ee-9c03-4923-9a09-661c050d9334",
+  "sessionId": "6a951e94-a2c8-4fa6-90df-e5f52052af5a",
   "workspaceRoot": "/home/hatch/workspace/neon-bomber",
-  "pid": 13253,
-  "port": 8090,
-  "localUrl": "http://localhost:8090/",
+  "pid": 27577,
+  "port": 5173,
+  "localUrl": "http://localhost:5173/",
   "networkUrls": [
-    "http://198.19.0.2:8090/"
+    "http://198.19.0.2:5173/"
   ],
   "aiMode": "agent",
   "browser": {
@@ -14,9 +14,9 @@
     "connected": true,
     "commandReady": false,
     "connectedClientCount": 1,
-    "lastTransitionAt": "2026-07-07T08:15:06.229Z",
-    "lastBridgeConnectedAt": "2026-07-07T08:15:06.213Z"
+    "lastTransitionAt": "2026-07-07T10:14:40.787Z",
+    "lastBridgeConnectedAt": "2026-07-07T10:14:40.787Z"
   },
   "registeredAt": "2026-07-07T08:10:58.781Z",
-  "updatedAt": "2026-07-07T08:15:06.273Z"
+  "updatedAt": "2026-07-07T10:14:40.792Z"
 }

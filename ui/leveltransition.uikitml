@@ -1,0 +1,15 @@
+<container
+  name="transition-root"
+  flexDirection="column"
+  alignItems="center"
+  justifyContent="center"
+  width="100%"
+  height="100%"
+  padding="20"
+  backgroundColor="#000000ee"
+  borderRadius="12"
+>
+  <text name="transition-text" fontSize="32" color="#00ffff" fontWeight="bold">LEVEL 2</text>
+  <text name="transition-bonus" fontSize="16" color="#ffcc00">+1000 Level Bonus</text>
+  <text name="transition-enemies" fontSize="12" color="#ff4488">5 enemies incoming</text>
+</container>

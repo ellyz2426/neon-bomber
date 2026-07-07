@@ -54,6 +54,16 @@ async function main() {
   const fOff = hudEntity.getVectorView(Follower, 'offsetPosition');
   fOff[0] = 0; fOff[1] = 0.22; fOff[2] = -0.6;
 
+  // Create power-ups HUD (head-locked, below main HUD)
+  const powerupsEntity = world.createTransformEntity(undefined, {
+    parent: world.playerHeadEntity,
+    persistent: true,
+  });
+  powerupsEntity.addComponent(PanelUI, { config: './ui/powerups.json' });
+  powerupsEntity.addComponent(Follower);
+  const puOff = powerupsEntity.getVectorView(Follower, 'offsetPosition');
+  puOff[0] = 0; puOff[1] = 0.15; puOff[2] = -0.6;
+
   // Create menu panel (world-space, in front of player)
   const menuEntity = world.createTransformEntity();
   menuEntity.object3D!.position.set(0, 4, -2);
@@ -71,7 +81,33 @@ async function main() {
   settingsEntity.object3D!.visible = false;
   settingsEntity.addComponent(PanelUI, { config: './ui/settings.json' });
 
-  uiSystem.setPanelEntities(hudEntity, menuEntity, gameoverEntity, settingsEntity);
+  // Create pause panel
+  const pauseEntity = world.createTransformEntity();
+  pauseEntity.object3D!.position.set(0, 4, -2);
+  pauseEntity.object3D!.visible = false;
+  pauseEntity.addComponent(PanelUI, { config: './ui/pause.json' });
+
+  // Create achievements panel
+  const achievementsEntity = world.createTransformEntity();
+  achievementsEntity.object3D!.position.set(0, 4, -2);
+  achievementsEntity.object3D!.visible = false;
+  achievementsEntity.addComponent(PanelUI, { config: './ui/achvmts.json' });
+
+  // Create level transition panel (head-locked, center)
+  const transitionEntity = world.createTransformEntity(undefined, {
+    parent: world.playerHeadEntity,
+    persistent: true,
+  });
+  transitionEntity.addComponent(PanelUI, { config: './ui/leveltransition.json' });
+  transitionEntity.addComponent(Follower);
+  const trOff = transitionEntity.getVectorView(Follower, 'offsetPosition');
+  trOff[0] = 0; trOff[1] = 0; trOff[2] = -0.8;
+  transitionEntity.object3D!.visible = false;
+
+  uiSystem.setPanelEntities(
+    hudEntity, menuEntity, gameoverEntity, settingsEntity,
+    pauseEntity, achievementsEntity, powerupsEntity, transitionEntity
+  );
 }
 
 main();

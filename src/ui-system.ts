@@ -6,6 +6,7 @@ import {
   UIKit,
   eq,
   Entity,
+  Follower,
 } from '@iwsdk/core';
 import { GameManager, GameState, GameMode } from './game';
 import { GameSystem } from './game-system';
@@ -15,6 +16,9 @@ const getDoc = (e: Entity) =>
 
 const setText = (doc: UIKitDocument | undefined, id: string, text: string) =>
   (doc?.getElementById(id) as any)?.setProperties({ text });
+
+const setColor = (doc: UIKitDocument | undefined, id: string, color: string) =>
+  (doc?.getElementById(id) as any)?.setProperties({ color });
 
 const onClick = (doc: UIKitDocument, id: string, cb: () => void) => {
   const el = doc.getElementById(id) as any;
@@ -38,6 +42,22 @@ export class GameUISystem extends createSystem({
     required: [PanelUI, PanelDocument],
     where: [eq(PanelUI, 'config', './ui/settings.json')],
   },
+  pause: {
+    required: [PanelUI, PanelDocument],
+    where: [eq(PanelUI, 'config', './ui/pause.json')],
+  },
+  achievements: {
+    required: [PanelUI, PanelDocument],
+    where: [eq(PanelUI, 'config', './ui/achvmts.json')],
+  },
+  powerups: {
+    required: [PanelUI, PanelDocument],
+    where: [eq(PanelUI, 'config', './ui/powerups.json')],
+  },
+  transition: {
+    required: [PanelUI, PanelDocument],
+    where: [eq(PanelUI, 'config', './ui/leveltransition.json')],
+  },
 }) {
   private game!: GameManager;
   private gameSystem!: GameSystem;
@@ -45,22 +65,40 @@ export class GameUISystem extends createSystem({
   private menuEntity!: Entity;
   private gameoverEntity!: Entity;
   private settingsEntity!: Entity;
+  private pauseEntity!: Entity;
+  private achievementsEntity!: Entity;
+  private powerupsEntity!: Entity;
+  private transitionEntity!: Entity;
+
   private hudDoc: UIKitDocument | null = null;
   private menuDoc: UIKitDocument | null = null;
   private gameoverDoc: UIKitDocument | null = null;
   private settingsDoc: UIKitDocument | null = null;
+  private pauseDoc: UIKitDocument | null = null;
+  private achievementsDoc: UIKitDocument | null = null;
+  private powerupsDoc: UIKitDocument | null = null;
+  private transitionDoc: UIKitDocument | null = null;
+
   private lastState: GameState = GameState.Menu;
+  private lastCombo = 0;
 
   setRefs(refs: { game: GameManager; gameSystem: GameSystem }) {
     this.game = refs.game;
     this.gameSystem = refs.gameSystem;
   }
 
-  setPanelEntities(hud: Entity, menu: Entity, gameover: Entity, settings: Entity) {
+  setPanelEntities(
+    hud: Entity, menu: Entity, gameover: Entity, settings: Entity,
+    pause: Entity, achievements: Entity, powerups: Entity, transition: Entity
+  ) {
     this.hudEntity = hud;
     this.menuEntity = menu;
     this.gameoverEntity = gameover;
     this.settingsEntity = settings;
+    this.pauseEntity = pause;
+    this.achievementsEntity = achievements;
+    this.powerupsEntity = powerups;
+    this.transitionEntity = transition;
   }
 
   init() {
@@ -81,6 +119,24 @@ export class GameUISystem extends createSystem({
     this.queries.settings.subscribe('qualify', (entity) => {
       this.settingsDoc = getDoc(entity) || null;
       if (this.settingsDoc) this.wireSettingsButtons();
+    });
+
+    this.queries.pause.subscribe('qualify', (entity) => {
+      this.pauseDoc = getDoc(entity) || null;
+      if (this.pauseDoc) this.wirePauseButtons();
+    });
+
+    this.queries.achievements.subscribe('qualify', (entity) => {
+      this.achievementsDoc = getDoc(entity) || null;
+      if (this.achievementsDoc) this.wireAchievementsButtons();
+    });
+
+    this.queries.powerups.subscribe('qualify', (entity) => {
+      this.powerupsDoc = getDoc(entity) || null;
+    });
+
+    this.queries.transition.subscribe('qualify', (entity) => {
+      this.transitionDoc = getDoc(entity) || null;
     });
   }
 
@@ -108,8 +164,20 @@ export class GameUISystem extends createSystem({
       this.showPanel('playing');
     });
 
+    onClick(doc, 'btn-puzzle', () => {
+      this.game.startGame(GameMode.Puzzle);
+      this.gameSystem.showGame();
+      this.gameSystem.applyTheme();
+      this.showPanel('playing');
+    });
+
     onClick(doc, 'btn-settings', () => {
       this.showPanel('settings');
+    });
+
+    onClick(doc, 'btn-menu-ach', () => {
+      this.updateAchievementsDisplay();
+      this.showPanel('achievements');
     });
   }
 
@@ -160,18 +228,92 @@ export class GameUISystem extends createSystem({
     }
   }
 
+  private wirePauseButtons() {
+    const doc = this.pauseDoc!;
+
+    onClick(doc, 'btn-resume', () => {
+      this.game.state = GameState.Playing;
+      this.showPanel('playing');
+    });
+
+    onClick(doc, 'btn-achievements', () => {
+      this.updateAchievementsDisplay();
+      this.showPanel('achievements');
+    });
+
+    onClick(doc, 'btn-quit', () => {
+      this.game.state = GameState.Menu;
+      this.gameSystem.hideGame();
+      this.showPanel('menu');
+    });
+  }
+
+  private wireAchievementsButtons() {
+    const doc = this.achievementsDoc!;
+
+    onClick(doc, 'btn-ach-back', () => {
+      if (this.game.state === GameState.Paused) {
+        this.showPanel('pause');
+      } else {
+        this.showPanel('menu');
+      }
+    });
+  }
+
   private updateSettingsDisplay() {
     if (!this.settingsDoc) return;
     const diffNames = ['Easy', 'Normal', 'Hard'];
     setText(this.settingsDoc, 'diff-label', `Difficulty: ${diffNames[this.game.difficulty]}`);
     setText(this.settingsDoc, 'theme-label', `Theme: ${this.game.currentTheme.name}`);
+    this.game.saveHighScores();
   }
 
-  private showPanel(state: 'menu' | 'playing' | 'gameover' | 'settings' | 'victory') {
+  private updateAchievementsDisplay() {
+    if (!this.achievementsDoc) return;
+    const doc = this.achievementsDoc;
+    setText(doc, 'ach-count', `${this.game.achievements.length} / ${this.game.totalAchievementCount} Unlocked`);
+
+    // Show achievements in lines
+    const allAchIds = Object.keys({
+      first_blood: 1, bomber_10: 1, combo_3: 1, combo_5: 1, combo_10: 1,
+      score_5k: 1, score_10k: 1, score_50k: 1, level_3: 1, level_5: 1, level_10: 1,
+      kill_10: 1, kill_50: 1, kill_100: 1, perfect: 1, games_10: 1,
+      speed_max: 1, bombs_max: 1, range_max: 1, all_powerups: 1,
+      survive_5min: 1, no_damage_level: 1, blocks_100: 1, blocks_500: 1,
+      enemy_bomber: 1, hard_complete: 1, timed_win: 1, survival_l5: 1,
+      survival_l10: 1, total_50k: 1, chain_bomb: 1, shield_save: 1,
+      remote_kill: 1, passthrough: 1, max_power: 1, quick_clear: 1,
+      bomb_chain_3: 1, no_bombs_die: 1, play_all_modes: 1, score_100k: 1,
+      kill_teleporter: 1, kill_patrol: 1, puzzle_complete: 1, bombs_100: 1,
+      powerups_20: 1, survive_10min: 1, combo_15: 1, level_15: 1,
+      blocks_1000: 1, fast_clear: 1,
+    });
+
+    for (let i = 0; i < 12; i++) {
+      const achId = allAchIds[i];
+      if (achId) {
+        const unlocked = this.game.achievements.includes(achId);
+        const name = this.game.getAchievementName(achId);
+        const prefix = unlocked ? '[*] ' : '[ ] ';
+        setText(doc, `ach-line-${i}`, prefix + name);
+        setColor(doc, `ach-line-${i}`, unlocked ? '#00ff88' : '#446688');
+      } else {
+        setText(doc, `ach-line-${i}`, '');
+      }
+    }
+
+    setText(doc, 'ach-stats', `Games: ${this.game.totalGames} -- Best: ${Math.floor(this.game.bestScore)} -- Total Kills: ${this.game.totalEnemiesKilled}`);
+  }
+
+  private showPanel(state: 'menu' | 'playing' | 'gameover' | 'settings' | 'victory' | 'pause' | 'achievements' | 'transition') {
     if (this.menuEntity) this.menuEntity.object3D!.visible = state === 'menu';
     if (this.gameoverEntity) this.gameoverEntity.object3D!.visible = state === 'gameover' || state === 'victory';
     if (this.settingsEntity) this.settingsEntity.object3D!.visible = state === 'settings';
     if (this.hudEntity) this.hudEntity.object3D!.visible = state === 'playing';
+    if (this.pauseEntity) this.pauseEntity.object3D!.visible = state === 'pause';
+    if (this.achievementsEntity) this.achievementsEntity.object3D!.visible = state === 'achievements';
+    if (this.powerupsEntity) this.powerupsEntity.object3D!.visible = state === 'playing';
+    if (this.transitionEntity) this.transitionEntity.object3D!.visible = state === 'transition';
   }
 
   update(delta: number, time: number) {
@@ -180,14 +322,27 @@ export class GameUISystem extends createSystem({
       this.lastState = this.game.state;
     }
 
-    if (this.game.state === GameState.Playing && this.hudDoc) {
-      this.updateHUD();
+    if (this.game.state === GameState.Playing) {
+      if (this.hudDoc) this.updateHUD();
+      if (this.powerupsDoc) this.updatePowerUpsHUD();
+
+      // Combo sound
+      if (this.game.comboCount > this.lastCombo && this.game.comboCount > 1) {
+        this.gameSystem.playComboSound(this.game.comboCount);
+      }
+      this.lastCombo = this.game.comboCount;
     }
 
     if (this.game.state === GameState.Paused) {
       if (this.input.keyboard.getKeyDown('Escape')) {
         this.game.state = GameState.Playing;
         this.showPanel('playing');
+      }
+    }
+
+    if (this.game.state === GameState.LevelTransition) {
+      if (this.transitionDoc) {
+        this.updateTransitionDisplay();
       }
     }
   }
@@ -201,10 +356,19 @@ export class GameUISystem extends createSystem({
       this.showPanel('victory');
       this.updateGameoverDisplay(true);
       this.gameSystem.playVictorySound();
+      this.game.saveHighScores();
     } else if (to === GameState.Paused) {
-      this.showPanel('menu');
+      this.showPanel('pause');
+      this.updatePauseDisplay();
     } else if (to === GameState.Menu) {
       this.showPanel('menu');
+      this.game.saveHighScores();
+    } else if (to === GameState.LevelTransition) {
+      this.showPanel('transition');
+      this.updateTransitionDisplay();
+      this.gameSystem.playLevelCompleteSound();
+    } else if (to === GameState.Playing && from === GameState.LevelTransition) {
+      this.showPanel('playing');
     }
   }
 
@@ -214,11 +378,19 @@ export class GameUISystem extends createSystem({
     setText(this.hudDoc, 'lives', `Lives: ${this.game.lives}`);
     setText(this.hudDoc, 'level', `Lv ${this.game.level}`);
 
-    if (this.game.mode === GameMode.Timed) {
+    if (this.game.mode === GameMode.Timed || this.game.mode === GameMode.Puzzle) {
       const remaining = Math.max(0, this.game.timeLimit - this.game.timeElapsed);
       const min = Math.floor(remaining / 60);
       const sec = Math.floor(remaining % 60);
       setText(this.hudDoc, 'timer', `${min}:${sec.toString().padStart(2, '0')}`);
+      // Color warning
+      if (remaining < 30) {
+        setColor(this.hudDoc, 'timer', '#ff4444');
+      } else if (remaining < 60) {
+        setColor(this.hudDoc, 'timer', '#ffcc00');
+      } else {
+        setColor(this.hudDoc, 'timer', '#88ccff');
+      }
     } else {
       const min = Math.floor(this.game.timeElapsed / 60);
       const sec = Math.floor(this.game.timeElapsed % 60);
@@ -230,6 +402,34 @@ export class GameUISystem extends createSystem({
     } else {
       setText(this.hudDoc, 'combo', '');
     }
+  }
+
+  private updatePowerUpsHUD() {
+    if (!this.powerupsDoc) return;
+    setText(this.powerupsDoc, 'pu-bombs', `B:${this.game.maxBombs}`);
+    setText(this.powerupsDoc, 'pu-range', `R:${this.game.blastRange}`);
+    setText(this.powerupsDoc, 'pu-speed', `S:${this.game.speed.toFixed(1)}`);
+    setColor(this.powerupsDoc, 'pu-pass', this.game.hasPassThrough ? '#8888ff' : '#555555');
+    setColor(this.powerupsDoc, 'pu-remote', this.game.hasRemoteDetonate ? '#ff00ff' : '#555555');
+    const shieldActive = this.game.hasShield && this.game.shieldTimer > 0;
+    setColor(this.powerupsDoc, 'pu-shield', shieldActive ? '#00ffff' : '#555555');
+  }
+
+  private updatePauseDisplay() {
+    if (!this.pauseDoc) return;
+    setText(this.pauseDoc, 'pause-score', `Score: ${Math.floor(this.game.score)}`);
+    setText(this.pauseDoc, 'pause-level', `Level ${this.game.level}`);
+    const min = Math.floor(this.game.timeElapsed / 60);
+    const sec = Math.floor(this.game.timeElapsed % 60);
+    setText(this.pauseDoc, 'pause-time', `${min}:${sec.toString().padStart(2, '0')}`);
+  }
+
+  private updateTransitionDisplay() {
+    if (!this.transitionDoc) return;
+    setText(this.transitionDoc, 'transition-text', `LEVEL ${this.game.level + 1}`);
+    setText(this.transitionDoc, 'transition-bonus', `+${(this.game.level + 1) * 500} Level Bonus`);
+    const enemyCount = this.game.getEnemyCountForNextLevel();
+    setText(this.transitionDoc, 'transition-enemies', `${enemyCount} enemies incoming`);
   }
 
   private updateGameoverDisplay(victory: boolean) {
@@ -244,7 +444,7 @@ export class GameUISystem extends createSystem({
       const names = newAchievements.map(id => this.game.getAchievementName(id)).join(', ');
       setText(this.gameoverDoc, 'achievements', `Unlocked: ${names}`);
     } else {
-      setText(this.gameoverDoc, 'achievements', `Achievements: ${this.game.achievements.length}/40`);
+      setText(this.gameoverDoc, 'achievements', `Achievements: ${this.game.achievements.length}/${this.game.totalAchievementCount}`);
     }
   }
 }

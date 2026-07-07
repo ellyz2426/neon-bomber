@@ -6,14 +6,14 @@
   width="100%"
   height="100%"
   padding="20"
-  gap="12"
+  gap="10"
   backgroundColor="#000811ee"
   borderRadius="12"
 >
   <text fontSize="32" color="#00ffff" fontWeight="bold">NEON BOMBER</text>
   <text fontSize="14" color="#4488aa">Grid Arena Demolition</text>
 
-  <container flexDirection="column" gap="8" alignItems="center" marginTop="16" width="80%">
+  <container flexDirection="column" gap="6" alignItems="center" marginTop="12" width="80%">
     <text
       name="btn-classic"
       fontSize="18"
@@ -55,9 +55,23 @@
       cursor="pointer"
       hover-backgroundColor="#550033"
     >SURVIVAL MODE</text>
+
+    <text
+      name="btn-puzzle"
+      fontSize="18"
+      color="#8888ff"
+      fontWeight="bold"
+      backgroundColor="#110033"
+      padding="10"
+      borderRadius="6"
+      width="100%"
+      textAlign="center"
+      cursor="pointer"
+      hover-backgroundColor="#220066"
+    >PUZZLE MODE</text>
   </container>
 
-  <container flexDirection="column" gap="4" alignItems="center" marginTop="12" width="80%">
+  <container flexDirection="row" gap="6" alignItems="center" marginTop="8" width="80%">
     <text
       name="btn-settings"
       fontSize="14"
@@ -65,16 +79,29 @@
       backgroundColor="#111122"
       padding="8"
       borderRadius="6"
-      width="100%"
+      width="50%"
       textAlign="center"
       cursor="pointer"
       hover-backgroundColor="#222244"
     >SETTINGS</text>
+
+    <text
+      name="btn-menu-ach"
+      fontSize="14"
+      color="#ffcc00"
+      backgroundColor="#221100"
+      padding="8"
+      borderRadius="6"
+      width="50%"
+      textAlign="center"
+      cursor="pointer"
+      hover-backgroundColor="#442200"
+    >TROPHIES</text>
   </container>
 
-  <container flexDirection="column" gap="4" alignItems="center" marginTop="8">
-    <text fontSize="11" color="#446688">WASD/Arrows: Move -- Space: Bomb</text>
-    <text fontSize="11" color="#446688">R: Remote Detonate -- Esc: Pause</text>
-    <text fontSize="11" color="#446688">VR: Left Stick Move -- Trigger/A: Bomb</text>
+  <container flexDirection="column" gap="3" alignItems="center" marginTop="6">
+    <text fontSize="10" color="#446688">WASD/Arrows: Move -- Space: Bomb</text>
+    <text fontSize="10" color="#446688">R: Remote Detonate -- Esc: Pause</text>
+    <text fontSize="10" color="#446688">VR: Left Stick Move -- Trigger/A: Bomb</text>
   </container>
 </container>

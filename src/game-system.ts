@@ -35,7 +35,12 @@ const MAT = {
   enemyWander: null as MeshStandardMaterial | null,
   enemyChase: null as MeshStandardMaterial | null,
   enemyBomber: null as MeshStandardMaterial | null,
+  enemyPatrol: null as MeshStandardMaterial | null,
+  enemyTeleporter: null as MeshStandardMaterial | null,
   gridLine: null as LineBasicMaterial | null,
+  borderWall: null as MeshStandardMaterial | null,
+  borderGlow: null as MeshBasicMaterial | null,
+  exitTile: null as MeshBasicMaterial | null,
   powerUp: new Map<number, MeshBasicMaterial>(),
 };
 
@@ -48,8 +53,12 @@ const GEO = {
   bomb: null as SphereGeometry | null,
   explosion: null as BoxGeometry | null,
   enemy: null as BoxGeometry | null,
+  enemyTeleporter: null as SphereGeometry | null,
   powerUp: null as SphereGeometry | null,
   flat: null as BoxGeometry | null,
+  borderPost: null as BoxGeometry | null,
+  borderBar: null as BoxGeometry | null,
+  exitTile: null as CylinderGeometry | null,
 };
 
 function gridToWorld(gx: number, gy: number): [number, number, number] {
@@ -68,10 +77,14 @@ export class GameSystem extends createSystem({}) {
   private powerUpMeshes: Map<string, Group> = new Map();
   private playerGroup!: Group;
   private gridLines!: LineSegments;
+  private borderGroup!: Group;
+  private exitMesh: Mesh | null = null;
   private lights: PointLight[] = [];
   private animTime = 0;
   private lastGridHash = '';
   private explosionParticles: Array<{ mesh: Mesh; vel: Vector3; life: number }> = [];
+  private deathParticles: Array<{ mesh: Mesh; vel: Vector3; life: number; color: number }> = [];
+  private teleportParticles: Array<{ mesh: Mesh; vel: Vector3; life: number }> = [];
   private shakeTimer = 0;
   private shakeIntensity = 0;
   private cameraBasePos = new Vector3(0, 8, 6);
@@ -110,6 +123,11 @@ export class GameSystem extends createSystem({}) {
     // Grid lines
     this.createGridLines();
 
+    // Arena border walls
+    this.borderGroup = new Group();
+    this.arenaGroup.add(this.borderGroup);
+    this.createBorderWalls();
+
     // Player
     this.playerGroup = new Group();
     const playerBody = new Mesh(GEO.player!, MAT.player!);
@@ -123,6 +141,13 @@ export class GameSystem extends createSystem({}) {
     );
     glowRing.position.y = 0.05;
     this.playerGroup.add(glowRing);
+
+    // Player visor (eyes)
+    const visorMat = new MeshBasicMaterial({ color: 0xffffff });
+    const visorGeo = new BoxGeometry(0.18, 0.04, 0.02);
+    const visor = new Mesh(visorGeo, visorMat);
+    visor.position.set(0, 0.48, -0.16);
+    this.playerGroup.add(visor);
 
     this.arenaGroup.add(this.playerGroup);
     this.playerGroup.visible = false;
@@ -153,7 +178,12 @@ export class GameSystem extends createSystem({}) {
     MAT.enemyWander = new MeshStandardMaterial({ color: 0xff4488, metalness: 0.4, roughness: 0.5, emissive: 0xff0044, emissiveIntensity: 0.4 });
     MAT.enemyChase = new MeshStandardMaterial({ color: 0xff0000, metalness: 0.4, roughness: 0.5, emissive: 0xff0000, emissiveIntensity: 0.6 });
     MAT.enemyBomber = new MeshStandardMaterial({ color: 0xff8800, metalness: 0.4, roughness: 0.5, emissive: 0xff4400, emissiveIntensity: 0.5 });
+    MAT.enemyPatrol = new MeshStandardMaterial({ color: 0x8844ff, metalness: 0.4, roughness: 0.5, emissive: 0x4400ff, emissiveIntensity: 0.5 });
+    MAT.enemyTeleporter = new MeshStandardMaterial({ color: 0x00ff88, metalness: 0.6, roughness: 0.3, emissive: 0x00ff44, emissiveIntensity: 0.7 });
     MAT.gridLine = new LineBasicMaterial({ color: 0x00ffff, transparent: true, opacity: 0.15 });
+    MAT.borderWall = new MeshStandardMaterial({ color: 0x223344, metalness: 0.7, roughness: 0.3, emissive: 0x00ffff, emissiveIntensity: 0.15 });
+    MAT.borderGlow = new MeshBasicMaterial({ color: 0x00ffff, transparent: true, opacity: 0.4, blending: AdditiveBlending });
+    MAT.exitTile = new MeshBasicMaterial({ color: 0x00ff88, transparent: true, opacity: 0.8, blending: AdditiveBlending });
 
     const puColors = [0x00ff00, 0xff8800, 0xffff00, 0x8888ff, 0xff00ff, 0x00ffff];
     for (let i = 0; i < puColors.length; i++) {
@@ -169,8 +199,12 @@ export class GameSystem extends createSystem({}) {
     GEO.bomb = new SphereGeometry(0.25, 12, 12);
     GEO.explosion = new BoxGeometry(CELL_SIZE * 0.9, 0.8, CELL_SIZE * 0.9);
     GEO.enemy = new BoxGeometry(0.45, 0.55, 0.45);
+    GEO.enemyTeleporter = new SphereGeometry(0.28, 10, 10);
     GEO.powerUp = new SphereGeometry(0.18, 8, 8);
     GEO.flat = new BoxGeometry(CELL_SIZE * 0.9, 0.02, CELL_SIZE * 0.9);
+    GEO.borderPost = new BoxGeometry(0.15, 1.2, 0.15);
+    GEO.borderBar = new BoxGeometry(CELL_SIZE, 0.06, 0.06);
+    GEO.exitTile = new CylinderGeometry(0.35, 0.35, 0.05, 12);
   }
 
   private createGridLines() {
@@ -193,8 +227,65 @@ export class GameSystem extends createSystem({}) {
     this.arenaGroup.add(this.gridLines);
   }
 
+  private createBorderWalls() {
+    // Create neon border posts at corners of the arena
+    const hw = (GRID_W * CELL_SIZE) / 2;
+    const hh = (GRID_H * CELL_SIZE) / 2;
+
+    // Corner posts
+    const corners = [[-hw, -hh], [-hw, hh], [hw, -hh], [hw, hh]];
+    for (const [cx, cz] of corners) {
+      const post = new Mesh(GEO.borderPost!, MAT.borderWall!);
+      post.position.set(cx, 0.6, cz);
+      this.borderGroup.add(post);
+
+      // Glow caps
+      const cap = new Mesh(
+        new SphereGeometry(0.1, 8, 8),
+        MAT.borderGlow!
+      );
+      cap.position.set(cx, 1.2, cz);
+      this.borderGroup.add(cap);
+    }
+
+    // Horizontal bars (top and bottom)
+    for (let x = 0; x < GRID_W; x++) {
+      const [wx, , _wz] = gridToWorld(x, 0);
+      // Top bar
+      const barTop = new Mesh(GEO.borderBar!, MAT.borderGlow!);
+      barTop.position.set(wx, 1.0, -hh);
+      this.borderGroup.add(barTop);
+      // Bottom bar
+      const barBot = new Mesh(GEO.borderBar!, MAT.borderGlow!);
+      barBot.position.set(wx, 1.0, hh);
+      this.borderGroup.add(barBot);
+    }
+
+    // Vertical bars (left and right)
+    for (let y = 0; y < GRID_H; y++) {
+      const [_wx, , wz] = gridToWorld(0, y);
+      const barLeft = new Mesh(GEO.borderBar!, MAT.borderGlow!);
+      barLeft.position.set(-hw, 1.0, wz);
+      barLeft.rotation.y = Math.PI / 2;
+      this.borderGroup.add(barLeft);
+      const barRight = new Mesh(GEO.borderBar!, MAT.borderGlow!);
+      barRight.position.set(hw, 1.0, wz);
+      barRight.rotation.y = Math.PI / 2;
+      this.borderGroup.add(barRight);
+    }
+  }
+
   update(delta: number, time: number) {
     this.animTime = time;
+
+    if (this.game.state === GameState.LevelTransition) {
+      this.game.update(delta);
+      // Animate a brief flash
+      this.updateParticles(delta);
+      this.updateDeathParticles(delta);
+      this.updateTeleportParticles(delta);
+      return;
+    }
 
     if (this.game.state !== GameState.Playing) {
       this.handleMenuInput();
@@ -212,6 +303,20 @@ export class GameSystem extends createSystem({}) {
     }
     for (const pos of result.destroyed) {
       this.spawnBlockDestroyEffect(pos.x, pos.y);
+    }
+    for (const enemy of result.enemiesHit) {
+      this.spawnEnemyDeathEffect(enemy);
+    }
+    if (result.enemyTeleported) {
+      this.spawnTeleportEffect(result.enemyTeleported);
+      this.playTeleportSound();
+    }
+    if (result.exitRevealedNow) {
+      this.createExitMesh();
+      this.playExitRevealSound();
+    }
+    if (result.powerUpsSpawned.length > 0) {
+      this.playPowerUpSpawnSound();
     }
 
     // Rebuild visual grid
@@ -232,8 +337,13 @@ export class GameSystem extends createSystem({}) {
     // Update power-up visuals
     this.updatePowerUpVisuals();
 
+    // Update exit tile
+    this.updateExitVisual();
+
     // Update particles
     this.updateParticles(delta);
+    this.updateDeathParticles(delta);
+    this.updateTeleportParticles(delta);
 
     // Camera shake
     this.updateShake(delta);
@@ -242,6 +352,10 @@ export class GameSystem extends createSystem({}) {
     for (let i = 0; i < this.lights.length; i++) {
       this.lights[i].intensity = 1.5 + Math.sin(time * 2 + i * 2) * 0.5;
     }
+
+    // Animate border glow
+    const borderPulse = Math.sin(time * 1.5) * 0.15 + 0.4;
+    MAT.borderGlow!.opacity = borderPulse;
   }
 
   private handleGameInput(delta: number) {
@@ -310,11 +424,10 @@ export class GameSystem extends createSystem({}) {
   }
 
   private handleMenuInput() {
-    // Simple keyboard shortcuts for menu navigation handled by UI system
+    // Menu navigation handled by UI system
   }
 
   private rebuildGrid() {
-    // Compute grid hash to avoid rebuilding every frame
     let hash = '';
     for (let y = 0; y < GRID_H; y++) {
       for (let x = 0; x < GRID_W; x++) {
@@ -324,7 +437,6 @@ export class GameSystem extends createSystem({}) {
     if (hash === this.lastGridHash) return;
     this.lastGridHash = hash;
 
-    // Remove stale meshes
     const activeKeys = new Set<string>();
 
     for (let y = 0; y < GRID_H; y++) {
@@ -353,7 +465,6 @@ export class GameSystem extends createSystem({}) {
       }
     }
 
-    // Clean up removed blocks
     for (const [key, mesh] of this.blockMeshes) {
       if (!activeKeys.has(key)) {
         this.arenaGroup.remove(mesh);
@@ -377,7 +488,7 @@ export class GameSystem extends createSystem({}) {
       MAT.playerGlow!.color.setHex(0x00ffff);
     }
 
-    // Rotate player
+    // Rotate player slowly
     this.playerGroup.rotation.y = this.animTime * 0.5;
   }
 
@@ -402,26 +513,40 @@ export class GameSystem extends createSystem({}) {
         glow.position.y = 0.3;
         group.add(glow);
 
+        // Fuse spark
+        const spark = new Mesh(
+          new SphereGeometry(0.05, 6, 6),
+          new MeshBasicMaterial({ color: 0xffcc00, blending: AdditiveBlending })
+        );
+        spark.position.set(0, 0.55, 0);
+        group.add(spark);
+
         group.position.set(wx, 0, wz);
         this.arenaGroup.add(group);
         this.bombMeshes.set(key, group);
       }
 
       const group = this.bombMeshes.get(key)!;
-      // Pulse faster as timer decreases
       const urgency = 1 - bomb.timer / 3;
       const pulse = Math.sin(this.animTime * (5 + urgency * 15)) * 0.5 + 0.5;
       const glow = group.children[1] as Mesh;
       (glow.material as MeshBasicMaterial).opacity = 0.3 + pulse * 0.5;
       group.children[0].scale.setScalar(0.9 + pulse * 0.15);
 
-      // Color shift to brighter red near detonation
-      const emissiveIntensity = 0.3 + urgency * 0.7;
-      (group.children[0] as Mesh).material = MAT.bomb!;
-      MAT.bomb!.emissiveIntensity = emissiveIntensity;
+      // Fuse spark flicker
+      const spark = group.children[2];
+      if (spark) {
+        spark.position.y = 0.55 + Math.sin(this.animTime * 20) * 0.02;
+        (spark as Mesh).material = new MeshBasicMaterial({
+          color: urgency > 0.7 ? 0xff0000 : 0xffcc00,
+          blending: AdditiveBlending,
+        });
+        spark.visible = Math.sin(this.animTime * 30) > -0.3;
+      }
+
+      MAT.bomb!.emissiveIntensity = 0.3 + urgency * 0.7;
     }
 
-    // Remove detonated bombs
     for (const [key, group] of this.bombMeshes) {
       if (!activeKeys.has(key)) {
         this.arenaGroup.remove(group);
@@ -450,7 +575,6 @@ export class GameSystem extends createSystem({}) {
       mesh.scale.setScalar(0.5 + life * 0.5);
       (mesh.material as MeshBasicMaterial).opacity = life * 0.9;
 
-      // Color shift from white-hot to orange
       const c = new Color();
       c.setHSL(0.08 * life, 1, 0.5 + life * 0.3);
       (mesh.material as MeshBasicMaterial).color = c;
@@ -481,11 +605,25 @@ export class GameSystem extends createSystem({}) {
 
       if (!this.enemyMeshes.has(i)) {
         const group = new Group();
-        const mat = enemy.type === 'chase' ? MAT.enemyChase! :
-          enemy.type === 'bomber' ? MAT.enemyBomber! : MAT.enemyWander!;
-        const body = new Mesh(GEO.enemy!, mat);
-        body.position.y = 0.35;
-        group.add(body);
+        const mat = this.getEnemyMaterial(enemy.type);
+
+        if (enemy.type === 'teleporter') {
+          const body = new Mesh(GEO.enemyTeleporter!, mat);
+          body.position.y = 0.35;
+          group.add(body);
+
+          // Teleporter has a ring
+          const ring = new Mesh(
+            new CylinderGeometry(0.35, 0.35, 0.04, 12),
+            MAT.enemyTeleporter!.clone()
+          );
+          ring.position.y = 0.15;
+          group.add(ring);
+        } else {
+          const body = new Mesh(GEO.enemy!, mat);
+          body.position.y = 0.35;
+          group.add(body);
+        }
 
         // Eyes
         const eyeMat = new MeshBasicMaterial({ color: 0xffffff });
@@ -497,6 +635,17 @@ export class GameSystem extends createSystem({}) {
         eye2.position.set(0.1, 0.45, -0.22);
         group.add(eye2);
 
+        // HP indicator for multi-hp enemies
+        if (enemy.hp > 1) {
+          const hpMat = new MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.8 });
+          const hpGeo = new SphereGeometry(0.04, 6, 6);
+          for (let h = 0; h < enemy.hp; h++) {
+            const dot = new Mesh(hpGeo, hpMat);
+            dot.position.set((h - (enemy.hp - 1) / 2) * 0.12, 0.7, 0);
+            group.add(dot);
+          }
+        }
+
         this.arenaGroup.add(group);
         this.enemyMeshes.set(i, group);
       }
@@ -504,17 +653,36 @@ export class GameSystem extends createSystem({}) {
       const group = this.enemyMeshes.get(i)!;
       group.position.set(wx, 0, wz);
 
-      // Bob animation
-      group.children[0].position.y = 0.35 + Math.sin(this.animTime * 4 + i) * 0.05;
-      group.rotation.y = Math.sin(this.animTime * 2 + i * 3) * 0.3;
+      // Animations per type
+      if (enemy.type === 'patrol') {
+        group.children[0].position.y = 0.35;
+        group.rotation.y = (enemy.patrolDir * Math.PI) / 2;
+      } else if (enemy.type === 'teleporter') {
+        group.children[0].position.y = 0.35 + Math.sin(this.animTime * 5 + i) * 0.08;
+        if (group.children[1]) {
+          group.children[1].rotation.y = this.animTime * 3;
+        }
+      } else {
+        group.children[0].position.y = 0.35 + Math.sin(this.animTime * 4 + i) * 0.05;
+        group.rotation.y = Math.sin(this.animTime * 2 + i * 3) * 0.3;
+      }
     }
 
-    // Clean up dead enemies
     for (const [id, group] of this.enemyMeshes) {
       if (!activeIds.has(id)) {
         this.arenaGroup.remove(group);
         this.enemyMeshes.delete(id);
       }
+    }
+  }
+
+  private getEnemyMaterial(type: EnemyData['type']): MeshStandardMaterial {
+    switch (type) {
+      case 'chase': return MAT.enemyChase!;
+      case 'bomber': return MAT.enemyBomber!;
+      case 'patrol': return MAT.enemyPatrol!;
+      case 'teleporter': return MAT.enemyTeleporter!;
+      default: return MAT.enemyWander!;
     }
   }
 
@@ -534,7 +702,6 @@ export class GameSystem extends createSystem({}) {
         sphere.position.y = 0.4;
         group.add(sphere);
 
-        // Ring around power-up
         const ring = new Mesh(
           new CylinderGeometry(0.25, 0.25, 0.02, 12),
           mat.clone()
@@ -548,7 +715,6 @@ export class GameSystem extends createSystem({}) {
       }
 
       const group = this.powerUpMeshes.get(key)!;
-      // Float and spin
       group.children[0].position.y = 0.4 + Math.sin(this.animTime * 3) * 0.1;
       group.children[0].rotation.y = this.animTime * 2;
       group.children[1].rotation.y = -this.animTime * 1.5;
@@ -562,7 +728,24 @@ export class GameSystem extends createSystem({}) {
     }
   }
 
-  private onBombExplode(bomb: BombData) {
+  private createExitMesh() {
+    if (this.exitMesh) {
+      this.arenaGroup.remove(this.exitMesh);
+    }
+    const [wx, , wz] = gridToWorld(this.game.exitX, this.game.exitY);
+    this.exitMesh = new Mesh(GEO.exitTile!, MAT.exitTile!);
+    this.exitMesh.position.set(wx, 0.03, wz);
+    this.arenaGroup.add(this.exitMesh);
+  }
+
+  private updateExitVisual() {
+    if (!this.exitMesh || !this.game.exitRevealed) return;
+    this.exitMesh.rotation.y = this.animTime * 2;
+    MAT.exitTile!.opacity = 0.5 + Math.sin(this.animTime * 4) * 0.3;
+    this.exitMesh.scale.setScalar(0.8 + Math.sin(this.animTime * 3) * 0.2);
+  }
+
+  private onBombExplode(_bomb: BombData) {
     this.shakeTimer = 0.3;
     this.shakeIntensity = 0.15;
     this.playExplosionSound();
@@ -598,6 +781,80 @@ export class GameSystem extends createSystem({}) {
     }
   }
 
+  private spawnEnemyDeathEffect(enemy: EnemyData) {
+    const [wx, , wz] = gridToWorld(enemy.visualX, enemy.visualY);
+    const deathColor = this.getEnemyDeathColor(enemy.type);
+    for (let i = 0; i < 10; i++) {
+      const size = 0.06 + Math.random() * 0.08;
+      const geo = new BoxGeometry(size, size, size);
+      const mat = new MeshBasicMaterial({
+        color: deathColor,
+        transparent: true,
+        opacity: 1,
+        blending: AdditiveBlending,
+      });
+      const mesh = new Mesh(geo, mat);
+      mesh.position.set(
+        wx + (Math.random() - 0.5) * 0.3,
+        0.3 + Math.random() * 0.4,
+        wz + (Math.random() - 0.5) * 0.3
+      );
+      this.arenaGroup.add(mesh);
+      this.deathParticles.push({
+        mesh,
+        vel: new Vector3(
+          (Math.random() - 0.5) * 4,
+          3 + Math.random() * 3,
+          (Math.random() - 0.5) * 4
+        ),
+        life: 1.0 + Math.random() * 0.5,
+        color: deathColor,
+      });
+    }
+    this.playEnemyDeathSound(enemy.type);
+  }
+
+  private getEnemyDeathColor(type: EnemyData['type']): number {
+    switch (type) {
+      case 'chase': return 0xff0000;
+      case 'bomber': return 0xff8800;
+      case 'patrol': return 0x8844ff;
+      case 'teleporter': return 0x00ff88;
+      default: return 0xff4488;
+    }
+  }
+
+  private spawnTeleportEffect(enemy: EnemyData) {
+    const [wx, , wz] = gridToWorld(enemy.visualX, enemy.visualY);
+    for (let i = 0; i < 8; i++) {
+      const size = 0.04 + Math.random() * 0.06;
+      const geo = new SphereGeometry(size, 6, 6);
+      const mat = new MeshBasicMaterial({
+        color: 0x00ff88,
+        transparent: true,
+        opacity: 1,
+        blending: AdditiveBlending,
+      });
+      const mesh = new Mesh(geo, mat);
+      const angle = (i / 8) * Math.PI * 2;
+      mesh.position.set(
+        wx + Math.cos(angle) * 0.4,
+        0.3 + Math.random() * 0.5,
+        wz + Math.sin(angle) * 0.4
+      );
+      this.arenaGroup.add(mesh);
+      this.teleportParticles.push({
+        mesh,
+        vel: new Vector3(
+          Math.cos(angle) * 1.5,
+          2 + Math.random() * 2,
+          Math.sin(angle) * 1.5
+        ),
+        life: 0.6 + Math.random() * 0.4,
+      });
+    }
+  }
+
   private updateParticles(delta: number) {
     for (let i = this.explosionParticles.length - 1; i >= 0; i--) {
       const p = this.explosionParticles[i];
@@ -612,6 +869,38 @@ export class GameSystem extends createSystem({}) {
       (p.mesh.material as MeshBasicMaterial).opacity = p.life;
       p.mesh.rotation.x += delta * 5;
       p.mesh.rotation.z += delta * 3;
+    }
+  }
+
+  private updateDeathParticles(delta: number) {
+    for (let i = this.deathParticles.length - 1; i >= 0; i--) {
+      const p = this.deathParticles[i];
+      p.life -= delta;
+      if (p.life <= 0) {
+        this.arenaGroup.remove(p.mesh);
+        this.deathParticles.splice(i, 1);
+        continue;
+      }
+      p.vel.y -= 7 * delta;
+      p.mesh.position.add(p.vel.clone().multiplyScalar(delta));
+      (p.mesh.material as MeshBasicMaterial).opacity = p.life * 0.8;
+      p.mesh.scale.setScalar(0.5 + p.life * 0.5);
+    }
+  }
+
+  private updateTeleportParticles(delta: number) {
+    for (let i = this.teleportParticles.length - 1; i >= 0; i--) {
+      const p = this.teleportParticles[i];
+      p.life -= delta;
+      if (p.life <= 0) {
+        this.arenaGroup.remove(p.mesh);
+        this.teleportParticles.splice(i, 1);
+        continue;
+      }
+      p.vel.y -= 3 * delta;
+      p.mesh.position.add(p.vel.clone().multiplyScalar(delta));
+      (p.mesh.material as MeshBasicMaterial).opacity = p.life;
+      p.mesh.scale.setScalar(p.life);
     }
   }
 
@@ -635,7 +924,6 @@ export class GameSystem extends createSystem({}) {
 
   hideGame() {
     this.playerGroup.visible = false;
-    // Clean up all meshes
     for (const [, mesh] of this.blockMeshes) this.arenaGroup.remove(mesh);
     this.blockMeshes.clear();
     for (const [, mesh] of this.bombMeshes) this.arenaGroup.remove(mesh);
@@ -646,6 +934,10 @@ export class GameSystem extends createSystem({}) {
     this.enemyMeshes.clear();
     for (const [, mesh] of this.powerUpMeshes) this.arenaGroup.remove(mesh);
     this.powerUpMeshes.clear();
+    if (this.exitMesh) {
+      this.arenaGroup.remove(this.exitMesh);
+      this.exitMesh = null;
+    }
     this.lastGridHash = '';
   }
 
@@ -654,6 +946,8 @@ export class GameSystem extends createSystem({}) {
     MAT.floor!.color.setHex(theme.floorColor);
     MAT.gridLine!.color.setHex(theme.gridColor);
     MAT.playerGlow!.color.setHex(theme.accentColor);
+    MAT.borderGlow!.color.setHex(theme.gridColor);
+    MAT.borderWall!.emissive.setHex(theme.gridColor);
     this.scene.background = new Color(theme.floorColor);
     if (this.scene.fog) {
       (this.scene.fog as FogExp2).color.setHex(theme.floorColor);
@@ -736,5 +1030,46 @@ export class GameSystem extends createSystem({}) {
     notes.forEach((n, i) => {
       setTimeout(() => this.playTone(n, 0.2, 0.15, 'sine'), i * 150);
     });
+  }
+
+  private playEnemyDeathSound(type: EnemyData['type']) {
+    if (type === 'teleporter') {
+      this.playTone(800, 0.1, 0.2, 'sine');
+      setTimeout(() => this.playTone(400, 0.2, 0.15, 'sine'), 50);
+    } else if (type === 'bomber') {
+      this.playNoise(0.2, 0.3);
+      this.playTone(150, 0.2, 0.2, 'sawtooth');
+    } else {
+      this.playTone(300, 0.1, 0.2, 'square');
+      setTimeout(() => this.playTone(200, 0.15, 0.15, 'square'), 60);
+    }
+  }
+
+  private playTeleportSound() {
+    this.playTone(1200, 0.05, 0.1, 'sine');
+    setTimeout(() => this.playTone(600, 0.1, 0.1, 'sine'), 30);
+    setTimeout(() => this.playTone(1500, 0.08, 0.08, 'sine'), 80);
+  }
+
+  private playExitRevealSound() {
+    this.playTone(440, 0.15, 0.15, 'sine');
+    setTimeout(() => this.playTone(660, 0.15, 0.15, 'sine'), 100);
+    setTimeout(() => this.playTone(880, 0.2, 0.12, 'sine'), 200);
+  }
+
+  private playPowerUpSpawnSound() {
+    this.playTone(550, 0.08, 0.08, 'sine');
+  }
+
+  playLevelCompleteSound() {
+    const notes = [440, 554, 659, 880];
+    notes.forEach((n, i) => {
+      setTimeout(() => this.playTone(n, 0.15, 0.12, 'sine'), i * 120);
+    });
+  }
+
+  playComboSound(count: number) {
+    const freq = 400 + count * 80;
+    this.playTone(Math.min(freq, 1600), 0.08, 0.1, 'sine');
   }
 }
