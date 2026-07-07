@@ -1,0 +1,39 @@
+<container
+  name="howto-root"
+  flexDirection="column"
+  alignItems="center"
+  padding="16"
+  gap="8"
+  backgroundColor="#000022ee"
+  borderRadius="12"
+  borderWidth="2"
+  borderColor="#00ccff"
+  width="380"
+>
+  <text name="howto-title" fontSize="22" color="#00ffff" fontWeight="bold">HOW TO PLAY</text>
+
+  <text name="howto-move" fontSize="12" color="#88ccff">WASD / Arrows / Left Stick = Move</text>
+  <text name="howto-bomb" fontSize="12" color="#88ccff">Space / E / Right Trigger = Place Bomb</text>
+  <text name="howto-remote" fontSize="12" color="#88ccff">R / B Button = Remote Detonate</text>
+  <text name="howto-pause" fontSize="12" color="#88ccff">Esc / Left B = Pause</text>
+
+  <text name="howto-sep" fontSize="8" color="#334466">---</text>
+
+  <text name="howto-tip1" fontSize="11" color="#ffcc00">Destroy blocks to find power-ups</text>
+  <text name="howto-tip2" fontSize="11" color="#ffcc00">Chain explosions for combo bonus</text>
+  <text name="howto-tip3" fontSize="11" color="#ff8844">Watch for laser warnings in later levels!</text>
+  <text name="howto-tip4" fontSize="11" color="#8888ff">Conveyor belts push you - use them wisely</text>
+
+  <container
+    name="btn-howto-back"
+    backgroundColor="#006688"
+    borderRadius="6"
+    padding="8"
+    paddingLeft="24"
+    paddingRight="24"
+    marginTop="8"
+    hover-backgroundColor="#0088aa"
+  >
+    <text fontSize="14" color="#ffffff" fontWeight="bold">GOT IT</text>
+  </container>
+</container>

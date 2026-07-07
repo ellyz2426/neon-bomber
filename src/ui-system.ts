@@ -58,6 +58,10 @@ export class GameUISystem extends createSystem({
     required: [PanelUI, PanelDocument],
     where: [eq(PanelUI, 'config', './ui/leveltransition.json')],
   },
+  howto: {
+    required: [PanelUI, PanelDocument],
+    where: [eq(PanelUI, 'config', './ui/howto.json')],
+  },
 }) {
   private game!: GameManager;
   private gameSystem!: GameSystem;
@@ -69,6 +73,7 @@ export class GameUISystem extends createSystem({
   private achievementsEntity!: Entity;
   private powerupsEntity!: Entity;
   private transitionEntity!: Entity;
+  private howtoEntity!: Entity;
 
   private hudDoc: UIKitDocument | null = null;
   private menuDoc: UIKitDocument | null = null;
@@ -78,9 +83,11 @@ export class GameUISystem extends createSystem({
   private achievementsDoc: UIKitDocument | null = null;
   private powerupsDoc: UIKitDocument | null = null;
   private transitionDoc: UIKitDocument | null = null;
+  private howtoDoc: UIKitDocument | null = null;
 
   private lastState: GameState = GameState.Menu;
   private lastCombo = 0;
+  private lastMultiplier = 1;
 
   setRefs(refs: { game: GameManager; gameSystem: GameSystem }) {
     this.game = refs.game;
@@ -89,7 +96,8 @@ export class GameUISystem extends createSystem({
 
   setPanelEntities(
     hud: Entity, menu: Entity, gameover: Entity, settings: Entity,
-    pause: Entity, achievements: Entity, powerups: Entity, transition: Entity
+    pause: Entity, achievements: Entity, powerups: Entity, transition: Entity,
+    howto: Entity
   ) {
     this.hudEntity = hud;
     this.menuEntity = menu;
@@ -99,6 +107,7 @@ export class GameUISystem extends createSystem({
     this.achievementsEntity = achievements;
     this.powerupsEntity = powerups;
     this.transitionEntity = transition;
+    this.howtoEntity = howto;
   }
 
   init() {
@@ -137,6 +146,11 @@ export class GameUISystem extends createSystem({
 
     this.queries.transition.subscribe('qualify', (entity) => {
       this.transitionDoc = getDoc(entity) || null;
+    });
+
+    this.queries.howto.subscribe('qualify', (entity) => {
+      this.howtoDoc = getDoc(entity) || null;
+      if (this.howtoDoc) this.wireHowtoButtons();
     });
   }
 
@@ -178,6 +192,10 @@ export class GameUISystem extends createSystem({
     onClick(doc, 'btn-menu-ach', () => {
       this.updateAchievementsDisplay();
       this.showPanel('achievements');
+    });
+
+    onClick(doc, 'btn-howto', () => {
+      this.showPanel('howto');
     });
   }
 
@@ -260,6 +278,13 @@ export class GameUISystem extends createSystem({
     });
   }
 
+  private wireHowtoButtons() {
+    const doc = this.howtoDoc!;
+    onClick(doc, 'btn-howto-back', () => {
+      this.showPanel('menu');
+    });
+  }
+
   private updateSettingsDisplay() {
     if (!this.settingsDoc) return;
     const diffNames = ['Easy', 'Normal', 'Hard'];
@@ -305,7 +330,7 @@ export class GameUISystem extends createSystem({
     setText(doc, 'ach-stats', `Games: ${this.game.totalGames} -- Best: ${Math.floor(this.game.bestScore)} -- Total Kills: ${this.game.totalEnemiesKilled}`);
   }
 
-  private showPanel(state: 'menu' | 'playing' | 'gameover' | 'settings' | 'victory' | 'pause' | 'achievements' | 'transition') {
+  private showPanel(state: 'menu' | 'playing' | 'gameover' | 'settings' | 'victory' | 'pause' | 'achievements' | 'transition' | 'howto') {
     if (this.menuEntity) this.menuEntity.object3D!.visible = state === 'menu';
     if (this.gameoverEntity) this.gameoverEntity.object3D!.visible = state === 'gameover' || state === 'victory';
     if (this.settingsEntity) this.settingsEntity.object3D!.visible = state === 'settings';
@@ -314,6 +339,7 @@ export class GameUISystem extends createSystem({
     if (this.achievementsEntity) this.achievementsEntity.object3D!.visible = state === 'achievements';
     if (this.powerupsEntity) this.powerupsEntity.object3D!.visible = state === 'playing';
     if (this.transitionEntity) this.transitionEntity.object3D!.visible = state === 'transition';
+    if (this.howtoEntity) this.howtoEntity.object3D!.visible = state === 'howto';
   }
 
   update(delta: number, time: number) {
@@ -331,6 +357,12 @@ export class GameUISystem extends createSystem({
         this.gameSystem.playComboSound(this.game.comboCount);
       }
       this.lastCombo = this.game.comboCount;
+
+      // Multiplier sound
+      if (this.game.multiplier > this.lastMultiplier) {
+        this.gameSystem.playMultiplierSound(this.game.multiplier);
+      }
+      this.lastMultiplier = this.game.multiplier;
     }
 
     if (this.game.state === GameState.Paused) {
@@ -401,6 +433,12 @@ export class GameUISystem extends createSystem({
       setText(this.hudDoc, 'combo', `x${this.game.comboCount} COMBO`);
     } else {
       setText(this.hudDoc, 'combo', '');
+    }
+
+    if (this.game.multiplier > 1) {
+      setText(this.hudDoc, 'multiplier', `x${this.game.multiplier} MULTI`);
+    } else {
+      setText(this.hudDoc, 'multiplier', '');
     }
   }
 

@@ -104,9 +104,16 @@ async function main() {
   trOff[0] = 0; trOff[1] = 0; trOff[2] = -0.8;
   transitionEntity.object3D!.visible = false;
 
+  // Create how-to-play panel
+  const howtoEntity = world.createTransformEntity();
+  howtoEntity.object3D!.position.set(0, 4, -2);
+  howtoEntity.object3D!.visible = false;
+  howtoEntity.addComponent(PanelUI, { config: './ui/howto.json' });
+
   uiSystem.setPanelEntities(
     hudEntity, menuEntity, gameoverEntity, settingsEntity,
-    pauseEntity, achievementsEntity, powerupsEntity, transitionEntity
+    pauseEntity, achievementsEntity, powerupsEntity, transitionEntity,
+    howtoEntity
   );
 }
 

@@ -78,6 +78,30 @@ export interface PowerUpData {
   collected: boolean;
 }
 
+// Environmental hazard: laser beam
+export interface LaserData {
+  axis: 'row' | 'col';
+  index: number; // row or col number
+  timer: number; // time until next fire
+  warningTimer: number; // time showing warning
+  active: boolean; // currently firing
+  activeTimer: number; // time remaining active
+  interval: number; // seconds between fires
+}
+
+// Conveyor belt tile
+export interface ConveyorData {
+  x: number;
+  y: number;
+  dx: number; // push direction
+  dy: number;
+}
+
+// Danger zone preview for bomb
+export interface DangerZone {
+  cells: Array<{ x: number; y: number }>;
+}
+
 // Puzzle level definitions
 interface PuzzleLevel {
   name: string;
@@ -245,6 +269,19 @@ export class GameManager {
   sfxVolume = 0.7;
   musicVolume = 0.5;
   difficulty = 1; // 0=easy, 1=normal, 2=hard
+
+  // Environmental hazards
+  lasers: LaserData[] = [];
+  conveyors: ConveyorData[] = [];
+  dangerZones: DangerZone[] = [];
+
+  // Score multiplier
+  multiplier = 1;
+  multiplierTimer = 0;
+  maxMultiplier = 1;
+
+  // Trail positions for visual effect
+  playerTrail: Array<{ x: number; y: number; age: number }> = [];
 
   // Theme
   themeIndex = 0;
@@ -473,6 +510,83 @@ export class GameManager {
     }
   }
 
+  spawnHazards() {
+    this.lasers = [];
+    this.conveyors = [];
+
+    // Lasers appear from level 3+
+    if (this.level >= 3) {
+      const laserCount = Math.min(Math.floor((this.level - 2) / 2) + this.difficulty, 4);
+      for (let i = 0; i < laserCount; i++) {
+        const axis = i % 2 === 0 ? 'row' : 'col';
+        // Pick a row/col that doesn't have the player spawn
+        let idx: number;
+        if (axis === 'row') {
+          const candidates = [];
+          for (let r = 3; r < GRID_H - 1; r += 2) candidates.push(r);
+          idx = candidates[i % candidates.length];
+        } else {
+          const candidates = [];
+          for (let c = 3; c < GRID_W - 1; c += 2) candidates.push(c);
+          idx = candidates[i % candidates.length];
+        }
+        const interval = 8 - this.difficulty * 1.5;
+        this.lasers.push({
+          axis,
+          index: idx,
+          timer: interval + i * 2.5, // stagger start
+          warningTimer: 0,
+          active: false,
+          activeTimer: 0,
+          interval,
+        });
+      }
+    }
+
+    // Conveyors appear from level 4+
+    if (this.level >= 4 && this.mode !== GameMode.Puzzle) {
+      const conveyorCount = Math.min(this.level - 3 + this.difficulty, 6);
+      const dirs: Array<[number, number]> = [[1, 0], [-1, 0], [0, 1], [0, -1]];
+      for (let i = 0; i < conveyorCount; i++) {
+        let cx: number, cy: number;
+        let attempts = 0;
+        do {
+          cx = 2 + Math.floor(Math.random() * (GRID_W - 4));
+          cy = 2 + Math.floor(Math.random() * (GRID_H - 4));
+          attempts++;
+        } while (
+          attempts < 20 &&
+          (this.grid[cy][cx] !== CellType.Empty ||
+            (cx <= 2 && cy <= 2) || // player spawn area
+            this.conveyors.some(c => c.x === cx && c.y === cy))
+        );
+        if (attempts < 20) {
+          const dir = dirs[i % dirs.length];
+          this.conveyors.push({ x: cx, y: cy, dx: dir[0], dy: dir[1] });
+        }
+      }
+    }
+  }
+
+  computeDangerZones() {
+    this.dangerZones = [];
+    for (const bomb of this.bombs) {
+      const cells: Array<{ x: number; y: number }> = [{ x: bomb.x, y: bomb.y }];
+      const dirs = [[1, 0], [-1, 0], [0, 1], [0, -1]];
+      for (const [dx, dy] of dirs) {
+        for (let r = 1; r <= bomb.range; r++) {
+          const ex = bomb.x + dx * r;
+          const ey = bomb.y + dy * r;
+          if (ex < 0 || ex >= GRID_W || ey < 0 || ey >= GRID_H) break;
+          if (this.grid[ey][ex] === CellType.HardBlock) break;
+          cells.push({ x: ex, y: ey });
+          if (this.grid[ey][ex] === CellType.SoftBlock) break;
+        }
+      }
+      this.dangerZones.push({ cells });
+    }
+  }
+
   startGame(mode: GameMode = GameMode.Classic) {
     this.mode = mode;
     this.state = GameState.Playing;
@@ -496,6 +610,13 @@ export class GameManager {
     this.bombs = [];
     this.explosions = [];
     this.powerUps = [];
+    this.lasers = [];
+    this.conveyors = [];
+    this.dangerZones = [];
+    this.playerTrail = [];
+    this.multiplier = 1;
+    this.multiplierTimer = 0;
+    this.maxMultiplier = 1;
     this.exitX = -1;
     this.exitY = -1;
     this.exitRevealed = false;
@@ -513,6 +634,7 @@ export class GameManager {
     } else {
       this.initGrid();
       this.spawnEnemies();
+      this.spawnHazards();
     }
 
     this.saveHighScores();
@@ -545,6 +667,7 @@ export class GameManager {
       this.powerUps = [];
       this.initGrid();
       this.spawnEnemies();
+      this.spawnHazards();
     }
 
     // Level bonus
@@ -635,6 +758,8 @@ export class GameManager {
     levelComplete: boolean;
     exitRevealedNow: boolean;
     enemyTeleported: EnemyData | null;
+    laserFired: LaserData[];
+    conveyorPush: boolean;
   } {
     const result = {
       exploded: [] as BombData[],
@@ -645,6 +770,8 @@ export class GameManager {
       levelComplete: false,
       exitRevealedNow: false,
       enemyTeleported: null as EnemyData | null,
+      laserFired: [] as LaserData[],
+      conveyorPush: false,
     };
 
     if (this.state === GameState.LevelTransition) {
@@ -709,6 +836,34 @@ export class GameManager {
     // Update enemies
     this.updateEnemies(delta, result);
 
+    // Update lasers
+    this.updateLasers(delta, result);
+
+    // Update conveyors
+    this.updateConveyors(delta, result);
+
+    // Update danger zones
+    this.computeDangerZones();
+
+    // Update multiplier
+    if (this.multiplierTimer > 0) {
+      this.multiplierTimer -= delta;
+      if (this.multiplierTimer <= 0) {
+        this.multiplier = 1;
+      }
+    }
+
+    // Update player trail
+    this.playerTrail.push({ x: this.playerVisualX, y: this.playerVisualY, age: 0 });
+    for (let i = this.playerTrail.length - 1; i >= 0; i--) {
+      this.playerTrail[i].age += delta;
+      if (this.playerTrail[i].age > 0.5) {
+        this.playerTrail.splice(i, 1);
+      }
+    }
+    // Limit trail length
+    while (this.playerTrail.length > 15) this.playerTrail.shift();
+
     // Check exit reveal for puzzle mode
     if (this.mode === GameMode.Puzzle && !this.exitRevealed && this.exitX >= 0) {
       // Reveal exit when the cell at exit position is cleared
@@ -769,7 +924,7 @@ export class GameManager {
           result.destroyed.push({ x: ex, y: ey });
           this.blocksDestroyed++;
           this.totalBlocksDestroyed++;
-          this.score += 10;
+          this.score += 10 * this.multiplier;
           this.comboCount++;
           this.comboTimer = 2.0;
           if (this.comboCount > this.maxCombo) this.maxCombo = this.comboCount;
@@ -850,7 +1005,10 @@ export class GameManager {
             enemy.type === 'chase' ? 200 :
             enemy.type === 'teleporter' ? 400 :
             enemy.type === 'patrol' ? 250 : 100;
-          this.score += baseScore * (1 + this.comboCount * 0.5);
+          this.score += baseScore * this.multiplier * (1 + this.comboCount * 0.5);
+          this.multiplier = Math.min(this.multiplier + 1, 8);
+          this.multiplierTimer = 5.0;
+          if (this.multiplier > this.maxMultiplier) this.maxMultiplier = this.multiplier;
           this.comboCount++;
           this.comboTimer = 2.0;
           result.enemiesHit.push(enemy);
@@ -927,6 +1085,89 @@ export class GameManager {
               this.hasShield = true;
             }
           }
+        }
+      }
+    }
+  }
+
+  private updateLasers(delta: number, result: { playerHit: boolean; laserFired: LaserData[] }) {
+    for (const laser of this.lasers) {
+      if (laser.active) {
+        laser.activeTimer -= delta;
+        // Check if player is in laser path
+        if (laser.axis === 'row' && this.playerY === laser.index) {
+          this.hitByLaser(result);
+        } else if (laser.axis === 'col' && this.playerX === laser.index) {
+          this.hitByLaser(result);
+        }
+        // Check enemies in laser path
+        for (const enemy of this.enemies) {
+          if (!enemy.alive) continue;
+          const ey = Math.round(enemy.visualY);
+          const ex = Math.round(enemy.visualX);
+          if ((laser.axis === 'row' && ey === laser.index) ||
+              (laser.axis === 'col' && ex === laser.index)) {
+            enemy.hp--;
+            if (enemy.hp <= 0) {
+              enemy.alive = false;
+              this.enemiesKilled++;
+              this.totalEnemiesKilled++;
+              this.score += 150 * this.multiplier;
+            }
+          }
+        }
+        if (laser.activeTimer <= 0) {
+          laser.active = false;
+          laser.timer = laser.interval;
+        }
+      } else if (laser.warningTimer > 0) {
+        laser.warningTimer -= delta;
+        if (laser.warningTimer <= 0) {
+          laser.active = true;
+          laser.activeTimer = 0.8;
+          result.laserFired.push(laser);
+        }
+      } else {
+        laser.timer -= delta;
+        if (laser.timer <= 0) {
+          laser.warningTimer = 1.5; // 1.5s warning before firing
+        }
+      }
+    }
+  }
+
+  private hitByLaser(result: { playerHit: boolean }) {
+    if (this.hasShield && this.shieldTimer > 0) {
+      this.hasShield = false;
+      this.shieldTimer = 0;
+    } else {
+      result.playerHit = true;
+      this.lives--;
+      if (this.lives <= 0) {
+        this.state = GameState.GameOver;
+        this.updateStats();
+      } else {
+        this.playerX = 1;
+        this.playerY = 1;
+        this.playerVisualX = 1;
+        this.playerVisualY = 1;
+        this.shieldTimer = 3.0;
+        this.hasShield = true;
+      }
+    }
+  }
+
+  private updateConveyors(delta: number, result: { conveyorPush: boolean }) {
+    // Conveyors push player if standing on them (once per second)
+    for (const conv of this.conveyors) {
+      if (this.playerX === conv.x && this.playerY === conv.y && this.playerMoveTimer <= 0) {
+        const nx = this.playerX + conv.dx;
+        const ny = this.playerY + conv.dy;
+        if (this.canMove(nx, ny)) {
+          this.playerX = nx;
+          this.playerY = ny;
+          this.playerMoveTimer = 0.5;
+          result.conveyorPush = true;
         }
       }
     }
@@ -1157,6 +1398,17 @@ export class GameManager {
       { id: 'level_15', name: 'Legend', cond: () => this.level >= 15 },
       { id: 'blocks_1000', name: 'Total Destruction', cond: () => this.totalBlocksDestroyed >= 1000 },
       { id: 'fast_clear', name: 'Speedster', cond: () => this.fastestLevelClear < 30 },
+      // Round 2 achievements
+      { id: 'multi_x4', name: 'Quad Damage', cond: () => this.maxMultiplier >= 4 },
+      { id: 'multi_x8', name: 'Octakill', cond: () => this.maxMultiplier >= 8 },
+      { id: 'survive_laser', name: 'Laser Dodger', cond: () => this.level >= 3 && this.lives === (this.mode === GameMode.Survival ? 1 : 3) },
+      { id: 'level_20', name: 'Unstoppable', cond: () => this.level >= 20 },
+      { id: 'kill_200', name: 'Annihilator', cond: () => this.totalEnemiesKilled >= 200 },
+      { id: 'total_200k', name: 'Career: 200K', cond: () => this.totalScore >= 200000 },
+      { id: 'combo_20', name: 'Infinite Combo', cond: () => this.maxCombo >= 20 },
+      { id: 'all_themes', name: 'Interior Designer', cond: () => this.totalGames >= 5 },
+      { id: 'blocks_2000', name: 'Obliterator', cond: () => this.totalBlocksDestroyed >= 2000 },
+      { id: 'bombs_500', name: 'Pyromaniac', cond: () => this.totalBombsPlaced >= 500 },
     ];
 
     for (const check of checks) {
@@ -1186,11 +1438,15 @@ export class GameManager {
       puzzle_complete: 'Puzzle Master', bombs_100: 'Bomb Happy', powerups_20: 'Collector',
       survive_10min: 'Endurance Runner', combo_15: 'Combo Freak', level_15: 'Legend',
       blocks_1000: 'Total Destruction', fast_clear: 'Speedster',
+      multi_x4: 'Quad Damage', multi_x8: 'Octakill', survive_laser: 'Laser Dodger',
+      level_20: 'Unstoppable', kill_200: 'Annihilator', total_200k: 'Career: 200K',
+      combo_20: 'Infinite Combo', all_themes: 'Interior Designer',
+      blocks_2000: 'Obliterator', bombs_500: 'Pyromaniac',
     };
     return names[id] || id;
   }
 
-  get totalAchievementCount() { return 50; }
+  get totalAchievementCount() { return 60; }
 
   getEnemyCountForNextLevel(): number {
     return 2 + (this.level + 1) + this.difficulty;

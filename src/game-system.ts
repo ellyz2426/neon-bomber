@@ -20,7 +20,7 @@ import {
   LineSegments,
   InputComponent,
 } from '@iwsdk/core';
-import { GameManager, GRID_W, GRID_H, CELL_SIZE, CellType, PowerUpType, GameState, BombData, EnemyData, PowerUpData } from './game';
+import { GameManager, GRID_W, GRID_H, CELL_SIZE, CellType, PowerUpType, GameState, BombData, EnemyData, PowerUpData, LaserData } from './game';
 
 // Materials cache
 const MAT = {
@@ -85,6 +85,13 @@ export class GameSystem extends createSystem({}) {
   private explosionParticles: Array<{ mesh: Mesh; vel: Vector3; life: number }> = [];
   private deathParticles: Array<{ mesh: Mesh; vel: Vector3; life: number; color: number }> = [];
   private teleportParticles: Array<{ mesh: Mesh; vel: Vector3; life: number }> = [];
+  private laserMeshes: Map<number, Group> = new Map();
+  private laserWarningMeshes: Map<number, Mesh[]> = new Map();
+  private conveyorMeshes: Map<string, Group> = new Map();
+  private dangerZoneMeshes: Mesh[] = [];
+  private trailMeshes: Mesh[] = [];
+  private starfieldGroup!: Group;
+  private starfieldStars: Mesh[] = [];
   private shakeTimer = 0;
   private shakeIntensity = 0;
   private cameraBasePos = new Vector3(0, 8, 6);
@@ -163,6 +170,28 @@ export class GameSystem extends createSystem({}) {
       );
       this.scene.add(pl);
       this.lights.push(pl);
+    }
+
+    // Starfield background
+    this.starfieldGroup = new Group();
+    this.scene.add(this.starfieldGroup);
+    const starGeo = new SphereGeometry(0.03, 4, 4);
+    const starColors = [0x4488ff, 0x88ccff, 0xffffff, 0x44ffaa, 0xff88cc];
+    for (let i = 0; i < 120; i++) {
+      const starMat = new MeshBasicMaterial({
+        color: starColors[i % starColors.length],
+        transparent: true,
+        opacity: 0.3 + Math.random() * 0.5,
+        blending: AdditiveBlending,
+      });
+      const star = new Mesh(starGeo, starMat);
+      star.position.set(
+        (Math.random() - 0.5) * 40,
+        8 + Math.random() * 15,
+        (Math.random() - 0.5) * 40
+      );
+      this.starfieldGroup.add(star);
+      this.starfieldStars.push(star);
     }
   }
 
@@ -318,6 +347,11 @@ export class GameSystem extends createSystem({}) {
     if (result.powerUpsSpawned.length > 0) {
       this.playPowerUpSpawnSound();
     }
+    for (const laser of result.laserFired) {
+      this.playLaserSound();
+      this.shakeTimer = 0.15;
+      this.shakeIntensity = 0.08;
+    }
 
     // Rebuild visual grid
     this.rebuildGrid();
@@ -340,6 +374,12 @@ export class GameSystem extends createSystem({}) {
     // Update exit tile
     this.updateExitVisual();
 
+    // Update hazard visuals
+    this.updateLaserVisuals(time);
+    this.updateConveyorVisuals(time);
+    this.updateDangerZoneVisuals(time);
+    this.updateTrailVisuals();
+
     // Update particles
     this.updateParticles(delta);
     this.updateDeathParticles(delta);
@@ -356,6 +396,14 @@ export class GameSystem extends createSystem({}) {
     // Animate border glow
     const borderPulse = Math.sin(time * 1.5) * 0.15 + 0.4;
     MAT.borderGlow!.opacity = borderPulse;
+
+    // Animate starfield
+    for (let i = 0; i < this.starfieldStars.length; i++) {
+      const star = this.starfieldStars[i];
+      const mat = star.material as MeshBasicMaterial;
+      mat.opacity = 0.2 + Math.sin(time * (0.5 + (i % 7) * 0.3) + i) * 0.3;
+      star.position.y += Math.sin(time * 0.3 + i * 0.1) * 0.002;
+    }
   }
 
   private handleGameInput(delta: number) {
@@ -934,6 +982,18 @@ export class GameSystem extends createSystem({}) {
     this.enemyMeshes.clear();
     for (const [, mesh] of this.powerUpMeshes) this.arenaGroup.remove(mesh);
     this.powerUpMeshes.clear();
+    for (const [, group] of this.laserMeshes) this.arenaGroup.remove(group);
+    this.laserMeshes.clear();
+    for (const [, meshes] of this.laserWarningMeshes) {
+      for (const m of meshes) this.arenaGroup.remove(m);
+    }
+    this.laserWarningMeshes.clear();
+    for (const [, group] of this.conveyorMeshes) this.arenaGroup.remove(group);
+    this.conveyorMeshes.clear();
+    for (const m of this.dangerZoneMeshes) this.arenaGroup.remove(m);
+    this.dangerZoneMeshes = [];
+    for (const m of this.trailMeshes) this.arenaGroup.remove(m);
+    this.trailMeshes = [];
     if (this.exitMesh) {
       this.arenaGroup.remove(this.exitMesh);
       this.exitMesh = null;
@@ -951,6 +1011,205 @@ export class GameSystem extends createSystem({}) {
     this.scene.background = new Color(theme.floorColor);
     if (this.scene.fog) {
       (this.scene.fog as FogExp2).color.setHex(theme.floorColor);
+    }
+  }
+
+  // --- Hazard visuals ---
+
+  private updateLaserVisuals(time: number) {
+    // Clean up old laser meshes
+    for (const [, group] of this.laserMeshes) {
+      this.arenaGroup.remove(group);
+    }
+    this.laserMeshes.clear();
+    for (const [, meshes] of this.laserWarningMeshes) {
+      for (const m of meshes) this.arenaGroup.remove(m);
+    }
+    this.laserWarningMeshes.clear();
+
+    for (let li = 0; li < this.game.lasers.length; li++) {
+      const laser = this.game.lasers[li];
+
+      if (laser.active) {
+        // Draw active laser beam
+        const group = new Group();
+        const beamMat = new MeshBasicMaterial({
+          color: 0xff0044,
+          transparent: true,
+          opacity: 0.6 + Math.sin(time * 30) * 0.3,
+          blending: AdditiveBlending,
+        });
+
+        if (laser.axis === 'row') {
+          for (let x = 1; x < GRID_W - 1; x++) {
+            const [wx, , wz] = gridToWorld(x, laser.index);
+            const beam = new Mesh(new BoxGeometry(CELL_SIZE * 0.8, 0.6, 0.08), beamMat);
+            beam.position.set(wx, 0.3, wz);
+            group.add(beam);
+          }
+        } else {
+          for (let y = 1; y < GRID_H - 1; y++) {
+            const [wx, , wz] = gridToWorld(laser.index, y);
+            const beam = new Mesh(new BoxGeometry(0.08, 0.6, CELL_SIZE * 0.8), beamMat);
+            beam.position.set(wx, 0.3, wz);
+            group.add(beam);
+          }
+        }
+        this.arenaGroup.add(group);
+        this.laserMeshes.set(li, group);
+      } else if (laser.warningTimer > 0) {
+        // Draw warning indicators
+        const meshes: Mesh[] = [];
+        const warningMat = new MeshBasicMaterial({
+          color: 0xff4400,
+          transparent: true,
+          opacity: 0.15 + Math.sin(time * 6) * 0.1,
+          blending: AdditiveBlending,
+        });
+
+        if (laser.axis === 'row') {
+          for (let x = 1; x < GRID_W - 1; x++) {
+            const [wx, , wz] = gridToWorld(x, laser.index);
+            const warn = new Mesh(new BoxGeometry(CELL_SIZE * 0.9, 0.02, CELL_SIZE * 0.9), warningMat);
+            warn.position.set(wx, 0.02, wz);
+            this.arenaGroup.add(warn);
+            meshes.push(warn);
+          }
+        } else {
+          for (let y = 1; y < GRID_H - 1; y++) {
+            const [wx, , wz] = gridToWorld(laser.index, y);
+            const warn = new Mesh(new BoxGeometry(CELL_SIZE * 0.9, 0.02, CELL_SIZE * 0.9), warningMat);
+            warn.position.set(wx, 0.02, wz);
+            this.arenaGroup.add(warn);
+            meshes.push(warn);
+          }
+        }
+        this.laserWarningMeshes.set(li, meshes);
+      }
+    }
+  }
+
+  private updateConveyorVisuals(time: number) {
+    const activeKeys = new Set<string>();
+
+    for (const conv of this.game.conveyors) {
+      const key = `${conv.x}_${conv.y}`;
+      activeKeys.add(key);
+      const [wx, , wz] = gridToWorld(conv.x, conv.y);
+
+      if (!this.conveyorMeshes.has(key)) {
+        const group = new Group();
+        // Base tile
+        const baseMat = new MeshBasicMaterial({
+          color: 0x4444ff,
+          transparent: true,
+          opacity: 0.4,
+          blending: AdditiveBlending,
+        });
+        const base = new Mesh(new BoxGeometry(CELL_SIZE * 0.85, 0.03, CELL_SIZE * 0.85), baseMat);
+        base.position.y = 0.02;
+        group.add(base);
+
+        // Arrow indicators (3 small triangles pointing in direction)
+        const arrowMat = new MeshBasicMaterial({
+          color: 0x8888ff,
+          transparent: true,
+          opacity: 0.7,
+          blending: AdditiveBlending,
+        });
+        for (let a = 0; a < 3; a++) {
+          const arrow = new Mesh(
+            new CylinderGeometry(0, 0.08, 0.15, 3),
+            arrowMat
+          );
+          const offset = (a - 1) * 0.25;
+          arrow.position.set(
+            conv.dx === 0 ? offset : conv.dx * (a - 1) * 0.2,
+            0.1,
+            conv.dy === 0 ? offset : conv.dy * (a - 1) * 0.2
+          );
+          // Rotate arrow to point in conveyor direction
+          if (conv.dx > 0) arrow.rotation.z = -Math.PI / 2;
+          else if (conv.dx < 0) arrow.rotation.z = Math.PI / 2;
+          else if (conv.dy > 0) arrow.rotation.x = Math.PI;
+          // dy < 0 is default orientation
+          group.add(arrow);
+        }
+
+        group.position.set(wx, 0, wz);
+        this.arenaGroup.add(group);
+        this.conveyorMeshes.set(key, group);
+      }
+
+      // Animate arrows
+      const group = this.conveyorMeshes.get(key)!;
+      for (let a = 1; a <= 3; a++) {
+        if (group.children[a]) {
+          const phase = (time * 3 + a * 0.5) % 1;
+          (group.children[a] as Mesh).material = new MeshBasicMaterial({
+            color: 0x8888ff,
+            transparent: true,
+            opacity: 0.3 + phase * 0.5,
+            blending: AdditiveBlending,
+          });
+        }
+      }
+    }
+
+    for (const [key, group] of this.conveyorMeshes) {
+      if (!activeKeys.has(key)) {
+        this.arenaGroup.remove(group);
+        this.conveyorMeshes.delete(key);
+      }
+    }
+  }
+
+  private updateDangerZoneVisuals(time: number) {
+    // Remove old danger zone meshes
+    for (const m of this.dangerZoneMeshes) {
+      this.arenaGroup.remove(m);
+    }
+    this.dangerZoneMeshes = [];
+
+    const dangerMat = new MeshBasicMaterial({
+      color: 0xff2200,
+      transparent: true,
+      opacity: 0.06 + Math.sin(time * 4) * 0.04,
+      blending: AdditiveBlending,
+    });
+
+    for (const zone of this.game.dangerZones) {
+      for (const cell of zone.cells) {
+        const [wx, , wz] = gridToWorld(cell.x, cell.y);
+        const mesh = new Mesh(new BoxGeometry(CELL_SIZE * 0.85, 0.02, CELL_SIZE * 0.85), dangerMat);
+        mesh.position.set(wx, 0.015, wz);
+        this.arenaGroup.add(mesh);
+        this.dangerZoneMeshes.push(mesh);
+      }
+    }
+  }
+
+  private updateTrailVisuals() {
+    // Remove old trail meshes
+    for (const m of this.trailMeshes) {
+      this.arenaGroup.remove(m);
+    }
+    this.trailMeshes = [];
+
+    for (const t of this.game.playerTrail) {
+      const alpha = 1 - t.age / 0.5;
+      if (alpha <= 0) continue;
+      const mat = new MeshBasicMaterial({
+        color: 0x00ffff,
+        transparent: true,
+        opacity: alpha * 0.3,
+        blending: AdditiveBlending,
+      });
+      const [wx, , wz] = gridToWorld(t.x, t.y);
+      const mesh = new Mesh(new SphereGeometry(0.08 * alpha, 6, 6), mat);
+      mesh.position.set(wx, 0.1, wz);
+      this.arenaGroup.add(mesh);
+      this.trailMeshes.push(mesh);
     }
   }
 
@@ -1071,5 +1330,21 @@ export class GameSystem extends createSystem({}) {
   playComboSound(count: number) {
     const freq = 400 + count * 80;
     this.playTone(Math.min(freq, 1600), 0.08, 0.1, 'sine');
+  }
+
+  private playLaserSound() {
+    this.playTone(150, 0.3, 0.25, 'sawtooth');
+    this.playTone(200, 0.2, 0.15, 'square');
+    this.playNoise(0.15, 0.2);
+  }
+
+  playConveyorSound() {
+    this.playTone(180, 0.08, 0.06, 'sine');
+  }
+
+  playMultiplierSound(mult: number) {
+    const freq = 500 + mult * 100;
+    this.playTone(freq, 0.12, 0.1, 'sine');
+    setTimeout(() => this.playTone(freq * 1.5, 0.1, 0.08, 'sine'), 60);
   }
 }

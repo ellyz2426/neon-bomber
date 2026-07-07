@@ -7,9 +7,45 @@
   "pages_url": "https://ellyz2426.github.io/neon-bomber/",
   "build_start_utc": "2026-07-07T07:00:00Z",
   "target_hours": 6,
-  "total_build_minutes": 0,
+  "total_build_minutes": 45,
   "status": "building",
-  "rounds": [],
-  "features_completed": [],
-  "last_updated_utc": "2026-07-07T09:57:34Z"
+  "rounds": [
+    {
+      "round": 2,
+      "start_utc": "2026-07-07T09:57:00Z",
+      "end_utc": "2026-07-07T10:18:42Z",
+      "duration_minutes": 25,
+      "features": "Puzzle mode (5 levels), 2 new enemy types (patrol + teleporter), 50 achievements (up from 40), Pause panel, Achievements panel, Power-ups HUD, Level transition panel, high score persistence (localStorage), neon arena border walls, enemy death particles, teleport effects, fuse spark animation, combo sound feedback, exit tiles for puzzle mode, enemy HP system, fastest/survival time tracking, save settings",
+      "loc": 3316,
+      "panels": 8,
+      "deployed": true
+    }
+  ],
+  "features_completed": [
+    "Core grid-based Bomberman mechanics",
+    "13x11 arena with hard/soft blocks",
+    "Bomb placement with cross-pattern explosions",
+    "Chain bomb detonation",
+    "5 enemy AI types: wander, chase, bomber, patrol, teleporter",
+    "Enemy HP system (teleporters have 2 HP)",
+    "6 power-up types: ExtraBomb, BlastRange, Speed, PassThrough, RemoteDetonate, Shield",
+    "4 game modes: Classic, Timed, Survival, Puzzle",
+    "5 puzzle levels with custom layouts and hints",
+    "Exit tile mechanic for puzzle mode",
+    "5 holodeck themes with runtime switching",
+    "50 achievements with localStorage persistence",
+    "Combo scoring system with audio feedback",
+    "Level progression with transition animation",
+    "Procedural audio (10+ SFX types)",
+    "Particle effects: explosions, enemy death, teleport",
+    "8 PanelUI panels: HUD, Menu, Game Over, Settings, Pause, Achievements, Power-ups, Level Transition",
+    "XR controller + keyboard dual input",
+    "3 difficulty levels",
+    "Neon arena border walls with glowing posts",
+    "Bomb fuse spark animation",
+    "High score and settings persistence",
+    "Enemy-specific death sounds and colors",
+    "Timer warning colors for timed/puzzle modes"
+  ],
+  "last_updated_utc": "2026-07-07T10:58:57Z"
 }

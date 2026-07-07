@@ -79,7 +79,7 @@
       backgroundColor="#111122"
       padding="8"
       borderRadius="6"
-      width="50%"
+      width="33%"
       textAlign="center"
       cursor="pointer"
       hover-backgroundColor="#222244"
@@ -92,11 +92,24 @@
       backgroundColor="#221100"
       padding="8"
       borderRadius="6"
-      width="50%"
+      width="33%"
       textAlign="center"
       cursor="pointer"
       hover-backgroundColor="#442200"
     >TROPHIES</text>
+
+    <text
+      name="btn-howto"
+      fontSize="14"
+      color="#00ccff"
+      backgroundColor="#001122"
+      padding="8"
+      borderRadius="6"
+      width="33%"
+      textAlign="center"
+      cursor="pointer"
+      hover-backgroundColor="#002244"
+    >HOW TO PLAY</text>
   </container>
 
   <container flexDirection="column" gap="3" alignItems="center" marginTop="6">

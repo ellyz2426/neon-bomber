@@ -11,6 +11,7 @@
 >
   <text name="level" fontSize="16" color="#00ccff" fontWeight="bold">Lv 1</text>
   <text name="score" fontSize="16" color="#ffffff" fontWeight="bold">Score: 0</text>
+  <text name="multiplier" fontSize="14" color="#ffaa00" fontWeight="bold"></text>
   <text name="timer" fontSize="14" color="#88ccff">0:00</text>
   <text name="lives" fontSize="14" color="#ff4488">Lives: 3</text>
   <text name="combo" fontSize="14" color="#ffcc00" fontWeight="bold"></text>
