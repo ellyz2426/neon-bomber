@@ -49,6 +49,19 @@ export const MODIFIER_NAMES: Record<LevelModifier, string> = {
   [LevelModifier.Volatile]: 'Volatile',
 };
 
+export const POWER_UP_NAMES: Record<PowerUpType, string> = {
+  [PowerUpType.ExtraBomb]: 'Extra Bomb',
+  [PowerUpType.BlastRange]: 'Blast Range+',
+  [PowerUpType.Speed]: 'Speed Boost',
+  [PowerUpType.PassThrough]: 'Ghost Walk',
+  [PowerUpType.RemoteDetonate]: 'Remote Detonate',
+  [PowerUpType.Shield]: 'Shield',
+  [PowerUpType.BombKick]: 'Bomb Kick',
+  [PowerUpType.TimeFreeze]: 'Time Freeze',
+  [PowerUpType.Magnet]: 'Magnet',
+  [PowerUpType.Mine]: 'Mine',
+};
+
 export enum GameState {
   Menu = 0,
   Playing = 1,
@@ -157,6 +170,20 @@ export interface ScorePopup {
   value: number;
   age: number;
   color: number;
+}
+
+export interface PowerUpPopup {
+  x: number;
+  y: number;
+  name: string;
+  age: number;
+  color: number;
+}
+
+export interface LeaderboardEntry {
+  score: number;
+  level: number;
+  mode: string;
 }
 
 // Achievement notification
@@ -477,6 +504,10 @@ export class GameManager {
 
   // Score popups
   scorePopups: ScorePopup[] = [];
+  powerUpPopups: PowerUpPopup[] = [];
+
+  // Leaderboard
+  leaderboards: Record<string, LeaderboardEntry[]> = {};
 
   // Achievement notification queue
   achievementNotifications: AchievementNotification[] = [];
@@ -565,6 +596,7 @@ export class GameManager {
         this.modifiersEncountered = save.modifiersEncountered || [];
         this.volatileLevelsCleared = save.volatileLevelsCleared || 0;
         this.glassCannonKills = save.glassCannonKills || 0;
+        this.leaderboards = save.leaderboards || {};
       }
     } catch { /* localStorage may not be available */ }
   }
@@ -594,6 +626,7 @@ export class GameManager {
         modifiersEncountered: this.modifiersEncountered,
         volatileLevelsCleared: this.volatileLevelsCleared,
         glassCannonKills: this.glassCannonKills,
+        leaderboards: this.leaderboards,
       };
       localStorage.setItem('neon-bomber-save', JSON.stringify(save));
     } catch { /* localStorage may not be available */ }
@@ -975,6 +1008,7 @@ export class GameManager {
     this.slideDirection = [0, 0];
     this.playerTrail = [];
     this.scorePopups = [];
+    this.powerUpPopups = [];
     this.achievementNotifications = [];
     this.multiplier = 1;
     this.multiplierTimer = 0;
@@ -1554,6 +1588,14 @@ export class GameManager {
       this.scorePopups[i].age += delta;
       if (this.scorePopups[i].age > 1.5) {
         this.scorePopups.splice(i, 1);
+      }
+    }
+
+    // Update power-up name popups
+    for (let i = this.powerUpPopups.length - 1; i >= 0; i--) {
+      this.powerUpPopups[i].age += delta;
+      if (this.powerUpPopups[i].age > 2.0) {
+        this.powerUpPopups.splice(i, 1);
       }
     }
 
@@ -2258,6 +2300,14 @@ export class GameManager {
     this.score += 50;
     this.totalPowerUpsCollected++;
 
+    // Power-up name popup
+    const puName = POWER_UP_NAMES[pu.type] || 'Power-Up';
+    const puColors: Record<number, number> = {
+      0: 0x00ff00, 1: 0xff8800, 2: 0xffff00, 3: 0x8888ff, 4: 0xff00ff,
+      5: 0x00ffff, 6: 0xff6644, 7: 0x4488ff, 8: 0xff88ff, 9: 0xff4400,
+    };
+    this.powerUpPopups.push({ x: pu.x, y: pu.y, name: puName, age: 0, color: puColors[pu.type] || 0x00ff88 });
+
     switch (pu.type) {
       case PowerUpType.ExtraBomb:
         this.maxBombs = Math.min(this.maxBombs + 1, 8);
@@ -2334,6 +2384,16 @@ export class GameManager {
     if (this.enemies.every(e => !e.alive) && this.lives > 0) {
       this.perfectClears++;
     }
+
+    // Leaderboard update
+    if (this.score > 0) {
+      const entry: LeaderboardEntry = { score: this.score, level: this.level, mode: modeKey };
+      if (!this.leaderboards[modeKey]) this.leaderboards[modeKey] = [];
+      this.leaderboards[modeKey].push(entry);
+      this.leaderboards[modeKey].sort((a, b) => b.score - a.score);
+      this.leaderboards[modeKey] = this.leaderboards[modeKey].slice(0, 10);
+    }
+
     this.saveHighScores();
   }
 
@@ -2446,6 +2506,17 @@ export class GameManager {
       { id: 'kill_1000', name: 'Genocide II', cond: () => this.totalEnemiesKilled >= 1000 },
       { id: 'total_5m', name: 'Pentamillionaire', cond: () => this.totalScore >= 5000000 },
       { id: 'games_50', name: 'Veteran Player', cond: () => this.totalGames >= 50 },
+      // Round 7: leaderboard, mastery achievements
+      { id: 'classic_l10', name: 'Classic Champion', cond: () => this.mode === GameMode.Classic && this.level >= 10 },
+      { id: 'timed_fast', name: 'Speed Demon II', cond: () => this.mode === GameMode.Timed && this.fastestLevelClear < 20 },
+      { id: 'all_powerups_once', name: 'Taste Tester', cond: () => this.totalPowerUpsCollected >= 30 },
+      { id: 'bomb_rain_survive', name: 'Rainproof', cond: () => this.activeModifier === LevelModifier.BombRain && this.timeElapsed >= 120 },
+      { id: 'no_powerup_l3', name: 'Purist', cond: () => this.level >= 3 && this.totalPowerUpsCollected === 0 },
+      { id: 'multi_x8_glass', name: 'Diamond Cannon', cond: () => this.activeModifier === LevelModifier.GlassCannon && this.maxMultiplier >= 8 },
+      { id: 'perfect_5', name: 'Flawless Five', cond: () => this.perfectClears >= 5 },
+      { id: 'endless_w50', name: 'Force of Nature', cond: () => this.mode === GameMode.Endless && this.endlessWave >= 50 },
+      { id: 'total_10m', name: 'Decamillionaire', cond: () => this.totalScore >= 10000000 },
+      { id: 'bombs_1000', name: 'Bombardier', cond: () => this.totalBombsPlaced >= 1000 },
     ];
 
     for (const check of checks) {
@@ -2496,13 +2567,22 @@ export class GameManager {
       modifier_first: 'Modified', modifier_all: 'Adapt and Overcome',
       glass_cannon_5: 'Living Dangerously', volatile_clear: 'Quick Fuse',
       kill_1000: 'Genocide II', total_5m: 'Pentamillionaire', games_50: 'Veteran Player',
+      classic_l10: 'Classic Champion', timed_fast: 'Speed Demon II',
+      all_powerups_once: 'Taste Tester', bomb_rain_survive: 'Rainproof',
+      no_powerup_l3: 'Purist', multi_x8_glass: 'Diamond Cannon',
+      perfect_5: 'Flawless Five', endless_w50: 'Force of Nature',
+      total_10m: 'Decamillionaire', bombs_1000: 'Bombardier',
     };
     return names[id] || id;
   }
 
-  get totalAchievementCount() { return 100; }
+  get totalAchievementCount() { return 110; }
 
   getEnemyCountForNextLevel(): number {
     return 2 + (this.level + 1) + this.difficulty;
+  }
+
+  getLeaderboard(mode: string): LeaderboardEntry[] {
+    return this.leaderboards[mode] || [];
   }
 }

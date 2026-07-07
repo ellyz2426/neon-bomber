@@ -127,10 +127,16 @@ async function main() {
   statsEntity.object3D!.visible = false;
   statsEntity.addComponent(PanelUI, { config: './ui/stats.json' });
 
+  // Create leaderboard panel
+  const leaderboardEntity = world.createTransformEntity();
+  leaderboardEntity.object3D!.position.set(0, 4, -2);
+  leaderboardEntity.object3D!.visible = false;
+  leaderboardEntity.addComponent(PanelUI, { config: './ui/leaderboard.json' });
+
   uiSystem.setPanelEntities(
     hudEntity, menuEntity, gameoverEntity, settingsEntity,
     pauseEntity, achievementsEntity, powerupsEntity, transitionEntity,
-    howtoEntity, achNotifyEntity, statsEntity
+    howtoEntity, achNotifyEntity, statsEntity, leaderboardEntity
   );
 }
 

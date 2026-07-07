@@ -70,6 +70,10 @@ export class GameUISystem extends createSystem({
     required: [PanelUI, PanelDocument],
     where: [eq(PanelUI, 'config', './ui/stats.json')],
   },
+  leaderboard: {
+    required: [PanelUI, PanelDocument],
+    where: [eq(PanelUI, 'config', './ui/leaderboard.json')],
+  },
 }) {
   private game!: GameManager;
   private gameSystem!: GameSystem;
@@ -84,6 +88,7 @@ export class GameUISystem extends createSystem({
   private howtoEntity!: Entity;
   private achNotifyEntity!: Entity;
   private statsEntity!: Entity;
+  private leaderboardEntity!: Entity;
 
   private hudDoc: UIKitDocument | null = null;
   private menuDoc: UIKitDocument | null = null;
@@ -96,10 +101,12 @@ export class GameUISystem extends createSystem({
   private howtoDoc: UIKitDocument | null = null;
   private achNotifyDoc: UIKitDocument | null = null;
   private statsDoc: UIKitDocument | null = null;
+  private leaderboardDoc: UIKitDocument | null = null;
 
   private lastState: GameState = GameState.Menu;
   private lastCombo = 0;
   private lastMultiplier = 1;
+  private lbModeIndex = 0;
 
   setRefs(refs: { game: GameManager; gameSystem: GameSystem }) {
     this.game = refs.game;
@@ -109,7 +116,7 @@ export class GameUISystem extends createSystem({
   setPanelEntities(
     hud: Entity, menu: Entity, gameover: Entity, settings: Entity,
     pause: Entity, achievements: Entity, powerups: Entity, transition: Entity,
-    howto: Entity, achNotify: Entity, stats: Entity
+    howto: Entity, achNotify: Entity, stats: Entity, leaderboard: Entity
   ) {
     this.hudEntity = hud;
     this.menuEntity = menu;
@@ -122,6 +129,7 @@ export class GameUISystem extends createSystem({
     this.howtoEntity = howto;
     this.achNotifyEntity = achNotify;
     this.statsEntity = stats;
+    this.leaderboardEntity = leaderboard;
   }
 
   init() {
@@ -174,6 +182,11 @@ export class GameUISystem extends createSystem({
     this.queries.stats.subscribe('qualify', (entity) => {
       this.statsDoc = getDoc(entity) || null;
       if (this.statsDoc) this.wireStatsButtons();
+    });
+
+    this.queries.leaderboard.subscribe('qualify', (entity) => {
+      this.leaderboardDoc = getDoc(entity) || null;
+      if (this.leaderboardDoc) this.wireLeaderboardButtons();
     });
   }
 
@@ -231,6 +244,12 @@ export class GameUISystem extends createSystem({
     onClick(doc, 'btn-stats', () => {
       this.updateStatsDisplay();
       this.showPanel('stats');
+    });
+
+    onClick(doc, 'btn-leaderboard', () => {
+      this.lbModeIndex = 0;
+      this.updateLeaderboardDisplay();
+      this.showPanel('leaderboard');
     });
   }
 
@@ -327,6 +346,43 @@ export class GameUISystem extends createSystem({
     });
   }
 
+  private wireLeaderboardButtons() {
+    const doc = this.leaderboardDoc!;
+    const modes = ['Classic', 'Timed', 'Survival', 'Puzzle', 'Endless'];
+
+    onClick(doc, 'btn-lb-back', () => {
+      this.showPanel('menu');
+    });
+
+    onClick(doc, 'btn-lb-prev', () => {
+      this.lbModeIndex = (this.lbModeIndex - 1 + modes.length) % modes.length;
+      this.updateLeaderboardDisplay();
+    });
+
+    onClick(doc, 'btn-lb-next', () => {
+      this.lbModeIndex = (this.lbModeIndex + 1) % modes.length;
+      this.updateLeaderboardDisplay();
+    });
+  }
+
+  private updateLeaderboardDisplay() {
+    if (!this.leaderboardDoc) return;
+    const doc = this.leaderboardDoc;
+    const modes = ['Classic', 'Timed', 'Survival', 'Puzzle', 'Endless'];
+    const modeName = modes[this.lbModeIndex];
+    setText(doc, 'lb-mode', modeName);
+
+    const entries = this.game.getLeaderboard(modeName);
+    for (let i = 0; i < 10; i++) {
+      const entry = entries[i];
+      if (entry) {
+        setText(doc, `lb-${i + 1}`, `${i + 1}. ${Math.floor(entry.score)} (Lv ${entry.level})`);
+      } else {
+        setText(doc, `lb-${i + 1}`, `${i + 1}. ---`);
+      }
+    }
+  }
+
   private updateStatsDisplay() {
     if (!this.statsDoc) return;
     const doc = this.statsDoc;
@@ -405,7 +461,7 @@ export class GameUISystem extends createSystem({
     setText(doc, 'ach-stats', `Games: ${this.game.totalGames} -- Best: ${Math.floor(this.game.bestScore)} -- Total Kills: ${this.game.totalEnemiesKilled}`);
   }
 
-  private showPanel(state: 'menu' | 'playing' | 'gameover' | 'settings' | 'victory' | 'pause' | 'achievements' | 'transition' | 'howto' | 'stats') {
+  private showPanel(state: 'menu' | 'playing' | 'gameover' | 'settings' | 'victory' | 'pause' | 'achievements' | 'transition' | 'howto' | 'stats' | 'leaderboard') {
     if (this.menuEntity) this.menuEntity.object3D!.visible = state === 'menu';
     if (this.gameoverEntity) this.gameoverEntity.object3D!.visible = state === 'gameover' || state === 'victory';
     if (this.settingsEntity) this.settingsEntity.object3D!.visible = state === 'settings';
@@ -416,6 +472,7 @@ export class GameUISystem extends createSystem({
     if (this.transitionEntity) this.transitionEntity.object3D!.visible = state === 'transition';
     if (this.howtoEntity) this.howtoEntity.object3D!.visible = state === 'howto';
     if (this.statsEntity) this.statsEntity.object3D!.visible = state === 'stats';
+    if (this.leaderboardEntity) this.leaderboardEntity.object3D!.visible = state === 'leaderboard';
   }
 
   update(delta: number, time: number) {

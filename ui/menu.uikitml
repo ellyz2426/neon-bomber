@@ -85,15 +85,14 @@
     >ENDLESS MODE</text>
   </container>
 
-  <container flexDirection="row" gap="6" alignItems="center" marginTop="6" width="80%">
+  <container flexDirection="row" gap="4" alignItems="center" marginTop="6" width="80%" flexWrap="wrap" justifyContent="center">
     <text
       name="btn-settings"
-      fontSize="13"
+      fontSize="12"
       color="#8888aa"
       backgroundColor="#111122"
-      padding="7"
+      padding="6"
       borderRadius="6"
-      width="25%"
       textAlign="center"
       cursor="pointer"
       hover-backgroundColor="#222244"
@@ -101,12 +100,11 @@
 
     <text
       name="btn-menu-ach"
-      fontSize="13"
+      fontSize="12"
       color="#ffcc00"
       backgroundColor="#221100"
-      padding="7"
+      padding="6"
       borderRadius="6"
-      width="25%"
       textAlign="center"
       cursor="pointer"
       hover-backgroundColor="#442200"
@@ -114,29 +112,39 @@
 
     <text
       name="btn-howto"
-      fontSize="13"
+      fontSize="12"
       color="#00ccff"
       backgroundColor="#001122"
-      padding="7"
+      padding="6"
       borderRadius="6"
-      width="25%"
       textAlign="center"
       cursor="pointer"
       hover-backgroundColor="#002244"
-    >HOW TO PLAY</text>
+    >HOW TO</text>
 
     <text
       name="btn-stats"
-      fontSize="13"
+      fontSize="12"
       color="#88ff88"
       backgroundColor="#002211"
-      padding="7"
+      padding="6"
       borderRadius="6"
-      width="25%"
       textAlign="center"
       cursor="pointer"
       hover-backgroundColor="#003322"
     >STATS</text>
+
+    <text
+      name="btn-leaderboard"
+      fontSize="12"
+      color="#ffcc00"
+      backgroundColor="#222200"
+      padding="6"
+      borderRadius="6"
+      textAlign="center"
+      cursor="pointer"
+      hover-backgroundColor="#444400"
+    >RECORDS</text>
   </container>
 
   <container flexDirection="column" gap="3" alignItems="center" marginTop="4">

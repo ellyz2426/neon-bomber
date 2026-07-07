@@ -1576,6 +1576,12 @@ export class GameSystem extends createSystem({}) {
       this.spawnScorePopup(pop);
     }
 
+    // Spawn power-up name popups
+    while (this.game.powerUpPopups.length > 0) {
+      const pop = this.game.powerUpPopups.shift()!;
+      this.spawnPowerUpNamePopup(pop);
+    }
+
     // Update existing popups
     for (let i = this.scorePopupMeshes.length - 1; i >= 0; i--) {
       const sp = this.scorePopupMeshes[i];
@@ -1628,6 +1634,33 @@ export class GameSystem extends createSystem({}) {
 
     this.arenaGroup.add(group);
     this.scorePopupMeshes.push({ group, life: 1.5 });
+  }
+
+  private spawnPowerUpNamePopup(pop: { x: number; y: number; name: string; color: number }) {
+    const group = new Group();
+    const [wx, , wz] = gridToWorld(pop.x, pop.y);
+    group.position.set(wx, 1.5, wz);
+
+    // Create letter-like blocks for the name (simplified visual)
+    const chars = pop.name.substring(0, 12);
+    const spacing = 0.1;
+    const startX = -(chars.length - 1) * spacing / 2;
+    const mat = new MeshBasicMaterial({
+      color: pop.color, transparent: true, opacity: 1, blending: AdditiveBlending,
+    });
+
+    for (let c = 0; c < chars.length; c++) {
+      if (chars[c] === ' ') continue;
+      const block = new Mesh(
+        new BoxGeometry(0.06, 0.1, 0.015),
+        mat.clone()
+      );
+      block.position.x = startX + c * spacing;
+      group.add(block);
+    }
+
+    this.arenaGroup.add(group);
+    this.scorePopupMeshes.push({ group, life: 2.0 });
   }
 
   // --- Power-up collection effect ---

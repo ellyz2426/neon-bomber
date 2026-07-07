@@ -7,7 +7,7 @@
   "pages_url": "https://ellyz2426.github.io/neon-bomber/",
   "build_start_utc": "2026-07-07T07:00:00Z",
   "target_hours": 6,
-  "total_build_minutes": 140,
+  "total_build_minutes": 165,
   "status": "building",
   "rounds": [
     {
@@ -57,6 +57,16 @@
       "duration_minutes": 25,
       "features": "Splitter enemy type (splits into 2 fast wanderers on death, 2 HP, from level 7+), ice patches (slide mechanic from level 6+, translucent blue pulsing tiles), statistics panel (full career stats, per-mode best scores), theme-responsive ambient music (5 bass tuning profiles), per-mode best scores (localStorage), 90 achievements (10 new: splitter_kill, splitter_5, ice_slide, level_30, combo_25, survive_20min, total_2m, blocks_5000, powerups_50, endless_w30), 11 PanelUI panels (stats added)",
       "loc": 5014,
+      "panels": 11,
+      "deployed": true
+    },
+    {
+      "round": 6,
+      "start_utc": "2026-07-07T14:23:00Z",
+      "end_utc": "2026-07-07T14:48:00Z",
+      "duration_minutes": 25,
+      "features": "Level modifier system (7 types: Power Surge/Dense Arena/Speed Zone/Bomb Rain/Double Loot/Glass Cannon/Volatile, from level 3+, 60% chance), Mine power-up (10th type, flat disc visual, detonates on enemy contact), modifier HUD indicator, modifier shown on level transition, mine indicator on HUD, How To Play updated with mine/modifier tips, stats panel shows mine data, 100 achievements (10 new: Minelayer/Trap Master/Demolitionist/Modified/Adapt and Overcome/Living Dangerously/Quick Fuse/Genocide II/Pentamillionaire/Veteran Player)",
+      "loc": 5368,
       "panels": 11,
       "deployed": true
     }
@@ -122,7 +132,22 @@
     "Theme-responsive ambient music (5 bass tuning profiles)",
     "Per-mode best scores (localStorage persistence)",
     "90 achievements (10 new including splitter/ice/endurance)",
-    "11 PanelUI panels (stats panel added)"
+    "11 PanelUI panels (stats panel added)",
+    "Level modifier system (7 types, randomly applied from level 3+)",
+    "Power Surge modifier (random power-up at level start)",
+    "Dense Arena modifier (30% more soft blocks)",
+    "Speed Zone modifier (40% faster movement for all)",
+    "Bomb Rain modifier (random bombs drop every 12s)",
+    "Double Loot modifier (60% power-up drop rate)",
+    "Glass Cannon modifier (+2 blast range, 1 life)",
+    "Volatile modifier (1.5s bomb timers)",
+    "Mine power-up (10th type, flat disc, detonates on enemy contact)",
+    "Mine visual (glowing orange disc with pulsing ring and blinking warning dot)",
+    "Modifier display on HUD and level transition panel",
+    "Mine ready indicator on HUD",
+    "How To Play updated with mine and modifier tips",
+    "Stats panel shows mines placed and mine kills",
+    "100 achievements (10 new: mine, modifier, and milestone achievements)"
   ],
-  "last_updated_utc": "2026-07-07T14:16:02Z"
+  "last_updated_utc": "2026-07-07T14:30:59Z"
 }

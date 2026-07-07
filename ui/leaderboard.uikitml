@@ -1,0 +1,33 @@
+<panel width="380" height="460" backgroundColor="#0a0a1a" borderRadius="8" padding="12">
+  <text id="lb-title" fontSize="22" color="#ffcc00" fontWeight="bold">LEADERBOARD</text>
+
+  <panel width="356" height="1" backgroundColor="#224466" marginTop="6" marginBottom="6"></panel>
+
+  <text id="lb-mode" fontSize="16" color="#00ffcc" fontWeight="bold">Classic</text>
+
+  <text id="lb-1" fontSize="13" color="#ffcc00">1. ---</text>
+  <text id="lb-2" fontSize="13" color="#cccccc">2. ---</text>
+  <text id="lb-3" fontSize="13" color="#cc8844">3. ---</text>
+  <text id="lb-4" fontSize="13" color="#88ccff">4. ---</text>
+  <text id="lb-5" fontSize="13" color="#88ccff">5. ---</text>
+  <text id="lb-6" fontSize="13" color="#88ccff">6. ---</text>
+  <text id="lb-7" fontSize="13" color="#88ccff">7. ---</text>
+  <text id="lb-8" fontSize="13" color="#88ccff">8. ---</text>
+  <text id="lb-9" fontSize="13" color="#88ccff">9. ---</text>
+  <text id="lb-10" fontSize="13" color="#88ccff">10. ---</text>
+
+  <panel width="356" height="1" backgroundColor="#224466" marginTop="6" marginBottom="6"></panel>
+
+  <panel flexDirection="row" gap="8" justifyContent="center" width="356">
+    <panel id="btn-lb-prev" width="80" height="30" backgroundColor="#224466" borderRadius="4" justifyContent="center" alignItems="center" cursor="pointer" hover-backgroundColor="#336688">
+      <text fontSize="12" color="#00ffcc" fontWeight="bold">PREV</text>
+    </panel>
+    <panel id="btn-lb-next" width="80" height="30" backgroundColor="#224466" borderRadius="4" justifyContent="center" alignItems="center" cursor="pointer" hover-backgroundColor="#336688">
+      <text fontSize="12" color="#00ffcc" fontWeight="bold">NEXT</text>
+    </panel>
+  </panel>
+
+  <panel id="btn-lb-back" width="140" height="36" backgroundColor="#224466" borderRadius="4" justifyContent="center" alignItems="center" marginTop="8" cursor="pointer" hover-backgroundColor="#336688">
+    <text fontSize="14" color="#00ffcc" fontWeight="bold">BACK</text>
+  </panel>
+</panel>
