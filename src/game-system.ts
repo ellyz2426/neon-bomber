@@ -101,6 +101,8 @@ export class GameSystem extends createSystem({}) {
   private shakeIntensity = 0;
   private cameraBasePos = new Vector3(0, 8, 6);
   private inputCooldown = 0;
+  private screenFlashMesh: Mesh | null = null;
+  private timeFreezeOverlay: Mesh | null = null;
 
   setRefs(refs: { game: GameManager }) {
     this.game = refs.game;
@@ -199,6 +201,32 @@ export class GameSystem extends createSystem({}) {
       this.starfieldStars.push(star);
     }
 
+    // Screen flash overlay (full-screen quad positioned above arena)
+    const flashGeo = new BoxGeometry(30, 0.01, 30);
+    const flashMat = new MeshBasicMaterial({
+      color: 0xff0000,
+      transparent: true,
+      opacity: 0,
+      blending: AdditiveBlending,
+    });
+    this.screenFlashMesh = new Mesh(flashGeo, flashMat);
+    this.screenFlashMesh.position.set(0, 7, 0);
+    this.screenFlashMesh.visible = false;
+    this.scene.add(this.screenFlashMesh);
+
+    // Time freeze overlay (blue tint)
+    const freezeGeo = new BoxGeometry(25, 0.01, 25);
+    const freezeMat = new MeshBasicMaterial({
+      color: 0x4488ff,
+      transparent: true,
+      opacity: 0,
+      blending: AdditiveBlending,
+    });
+    this.timeFreezeOverlay = new Mesh(freezeGeo, freezeMat);
+    this.timeFreezeOverlay.position.set(0, 0.5, 0);
+    this.timeFreezeOverlay.visible = false;
+    this.arenaGroup.add(this.timeFreezeOverlay);
+
     // Danger zone mesh pool (avoids per-frame allocation)
     const dzGeo = new BoxGeometry(CELL_SIZE * 0.85, 0.02, CELL_SIZE * 0.85);
     for (let pi = 0; pi < 50; pi++) {
@@ -241,7 +269,7 @@ export class GameSystem extends createSystem({}) {
     MAT.borderGlow = new MeshBasicMaterial({ color: 0x00ffff, transparent: true, opacity: 0.4, blending: AdditiveBlending });
     MAT.exitTile = new MeshBasicMaterial({ color: 0x00ff88, transparent: true, opacity: 0.8, blending: AdditiveBlending });
 
-    const puColors = [0x00ff00, 0xff8800, 0xffff00, 0x8888ff, 0xff00ff, 0x00ffff, 0xff6644];
+    const puColors = [0x00ff00, 0xff8800, 0xffff00, 0x8888ff, 0xff00ff, 0x00ffff, 0xff6644, 0x4488ff, 0xff88ff];
     for (let i = 0; i < puColors.length; i++) {
       MAT.powerUp.set(i, new MeshBasicMaterial({ color: puColors[i], transparent: true, opacity: 0.9, blending: AdditiveBlending }));
     }
@@ -436,6 +464,28 @@ export class GameSystem extends createSystem({}) {
       const mat = star.material as MeshBasicMaterial;
       mat.opacity = 0.2 + Math.sin(time * (0.5 + (i % 7) * 0.3) + i) * 0.3;
       star.position.y += Math.sin(time * 0.3 + i * 0.1) * 0.002;
+    }
+
+    // Screen flash effect
+    if (this.screenFlashMesh) {
+      if (this.game.screenFlash) {
+        this.screenFlashMesh.visible = true;
+        (this.screenFlashMesh.material as MeshBasicMaterial).color.setHex(this.game.screenFlash.color);
+        (this.screenFlashMesh.material as MeshBasicMaterial).opacity = this.game.screenFlash.intensity;
+      } else {
+        this.screenFlashMesh.visible = false;
+      }
+    }
+
+    // Time freeze visual effect
+    if (this.timeFreezeOverlay) {
+      if (this.game.hasTimeFreeze) {
+        this.timeFreezeOverlay.visible = true;
+        const pulse = Math.sin(time * 4) * 0.03 + 0.08;
+        (this.timeFreezeOverlay.material as MeshBasicMaterial).opacity = pulse;
+      } else {
+        this.timeFreezeOverlay.visible = false;
+      }
     }
 
     // Periodically update music intensity (~2x/sec)
@@ -1674,6 +1724,25 @@ export class GameSystem extends createSystem({}) {
     const freq = 500 + mult * 100;
     this.playTone(freq, 0.12, 0.1, 'sine');
     setTimeout(() => this.playTone(freq * 1.5, 0.1, 0.08, 'sine'), 60);
+  }
+
+  playTimeFreezeSound() {
+    this.playTone(1200, 0.15, 0.12, 'sine');
+    setTimeout(() => this.playTone(600, 0.2, 0.1, 'sine'), 80);
+    setTimeout(() => this.playTone(300, 0.3, 0.08, 'sine'), 160);
+  }
+
+  playMagnetSound() {
+    this.playTone(800, 0.08, 0.1, 'sine');
+    setTimeout(() => this.playTone(900, 0.08, 0.1, 'sine'), 50);
+    setTimeout(() => this.playTone(1000, 0.1, 0.08, 'sine'), 100);
+  }
+
+  playWaveCompleteSound() {
+    const notes = [330, 440, 554, 660, 880];
+    notes.forEach((n, i) => {
+      setTimeout(() => this.playTone(n, 0.12, 0.1, 'sine'), i * 100);
+    });
   }
 
   startAmbientMusic() {

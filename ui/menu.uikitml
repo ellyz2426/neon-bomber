@@ -6,21 +6,21 @@
   width="100%"
   height="100%"
   padding="20"
-  gap="10"
+  gap="8"
   backgroundColor="#000811ee"
   borderRadius="12"
 >
   <text fontSize="32" color="#00ffff" fontWeight="bold">NEON BOMBER</text>
   <text fontSize="14" color="#4488aa">Grid Arena Demolition</text>
 
-  <container flexDirection="column" gap="6" alignItems="center" marginTop="12" width="80%">
+  <container flexDirection="column" gap="5" alignItems="center" marginTop="8" width="80%">
     <text
       name="btn-classic"
-      fontSize="18"
+      fontSize="16"
       color="#00ff88"
       fontWeight="bold"
       backgroundColor="#003322"
-      padding="10"
+      padding="8"
       borderRadius="6"
       width="100%"
       textAlign="center"
@@ -30,11 +30,11 @@
 
     <text
       name="btn-timed"
-      fontSize="18"
+      fontSize="16"
       color="#ffcc00"
       fontWeight="bold"
       backgroundColor="#332200"
-      padding="10"
+      padding="8"
       borderRadius="6"
       width="100%"
       textAlign="center"
@@ -44,11 +44,11 @@
 
     <text
       name="btn-survival"
-      fontSize="18"
+      fontSize="16"
       color="#ff4488"
       fontWeight="bold"
       backgroundColor="#330022"
-      padding="10"
+      padding="8"
       borderRadius="6"
       width="100%"
       textAlign="center"
@@ -58,26 +58,40 @@
 
     <text
       name="btn-puzzle"
-      fontSize="18"
+      fontSize="16"
       color="#8888ff"
       fontWeight="bold"
       backgroundColor="#110033"
-      padding="10"
+      padding="8"
       borderRadius="6"
       width="100%"
       textAlign="center"
       cursor="pointer"
       hover-backgroundColor="#220066"
     >PUZZLE MODE</text>
+
+    <text
+      name="btn-endless"
+      fontSize="16"
+      color="#ff8844"
+      fontWeight="bold"
+      backgroundColor="#331100"
+      padding="8"
+      borderRadius="6"
+      width="100%"
+      textAlign="center"
+      cursor="pointer"
+      hover-backgroundColor="#552200"
+    >ENDLESS MODE</text>
   </container>
 
-  <container flexDirection="row" gap="6" alignItems="center" marginTop="8" width="80%">
+  <container flexDirection="row" gap="6" alignItems="center" marginTop="6" width="80%">
     <text
       name="btn-settings"
-      fontSize="14"
+      fontSize="13"
       color="#8888aa"
       backgroundColor="#111122"
-      padding="8"
+      padding="7"
       borderRadius="6"
       width="33%"
       textAlign="center"
@@ -87,10 +101,10 @@
 
     <text
       name="btn-menu-ach"
-      fontSize="14"
+      fontSize="13"
       color="#ffcc00"
       backgroundColor="#221100"
-      padding="8"
+      padding="7"
       borderRadius="6"
       width="33%"
       textAlign="center"
@@ -100,10 +114,10 @@
 
     <text
       name="btn-howto"
-      fontSize="14"
+      fontSize="13"
       color="#00ccff"
       backgroundColor="#001122"
-      padding="8"
+      padding="7"
       borderRadius="6"
       width="33%"
       textAlign="center"
@@ -112,7 +126,7 @@
     >HOW TO PLAY</text>
   </container>
 
-  <container flexDirection="column" gap="3" alignItems="center" marginTop="6">
+  <container flexDirection="column" gap="3" alignItems="center" marginTop="4">
     <text fontSize="10" color="#446688">WASD/Arrows: Move -- Space: Bomb</text>
     <text fontSize="10" color="#446688">R: Remote Detonate -- Esc: Pause</text>
     <text fontSize="10" color="#446688">VR: Left Stick Move -- Trigger/A: Bomb</text>

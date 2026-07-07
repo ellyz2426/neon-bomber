@@ -22,6 +22,8 @@ export enum PowerUpType {
   RemoteDetonate = 4,
   Shield = 5,
   BombKick = 6,
+  TimeFreeze = 7,
+  Magnet = 8,
 }
 
 export enum GameState {
@@ -38,6 +40,7 @@ export enum GameMode {
   Timed = 1,
   Survival = 2,
   Puzzle = 3,
+  Endless = 4,
 }
 
 export interface BombData {
@@ -445,6 +448,26 @@ export class GameManager {
   // Bomb kick
   hasBombKick = false;
   lastMoveDir: [number, number] = [0, -1];
+
+  // Time Freeze
+  hasTimeFreeze = false;
+  timeFreezeTimer = 0;
+  timeFreezeSlowFactor = 0.2; // enemies move at 20% speed
+
+  // Magnet
+  hasMagnet = false;
+  magnetTimer = 0;
+  magnetRadius = 3;
+
+  // Endless mode
+  endlessWave = 0;
+  endlessWaveTimer = 0;
+  endlessWaveDuration = 45;
+  endlessKillsThisWave = 0;
+  endlessTotalWavesCleared = 0;
+
+  // Screen flash
+  screenFlash: { color: number; intensity: number; timer: number } | null = null;
 
   // Theme
   themeIndex = 0;
@@ -858,6 +881,14 @@ export class GameManager {
     this.maxMultiplier = 1;
     this.hasBombKick = false;
     this.lastMoveDir = [0, -1];
+    this.hasTimeFreeze = false;
+    this.timeFreezeTimer = 0;
+    this.hasMagnet = false;
+    this.magnetTimer = 0;
+    this.endlessWave = 0;
+    this.endlessWaveTimer = 0;
+    this.endlessKillsThisWave = 0;
+    this.screenFlash = null;
     this.exitX = -1;
     this.exitY = -1;
     this.exitRevealed = false;
@@ -872,6 +903,14 @@ export class GameManager {
 
     if (mode === GameMode.Puzzle) {
       this.initPuzzleGrid(0);
+    } else if (mode === GameMode.Endless) {
+      this.lives = 1;
+      this.endlessWave = 1;
+      this.endlessWaveDuration = 45;
+      this.endlessWaveTimer = this.endlessWaveDuration;
+      this.timeLimit = 9999;
+      this.initGrid();
+      this.spawnEndlessWave();
     } else {
       this.initGrid();
       this.spawnEnemies();
@@ -1082,8 +1121,44 @@ export class GameManager {
       if (this.comboTimer <= 0) this.comboCount = 0;
     }
 
+    // Time Freeze timer
+    if (this.timeFreezeTimer > 0) {
+      this.timeFreezeTimer -= delta;
+      if (this.timeFreezeTimer <= 0) {
+        this.hasTimeFreeze = false;
+      }
+    }
+
+    // Magnet timer + auto-collect
+    if (this.magnetTimer > 0) {
+      this.magnetTimer -= delta;
+      if (this.magnetTimer <= 0) {
+        this.hasMagnet = false;
+      } else {
+        // Auto-collect nearby power-ups
+        for (let i = 0; i < this.powerUps.length; i++) {
+          const pu = this.powerUps[i];
+          if (pu.collected) continue;
+          const dist = Math.abs(pu.x - this.playerX) + Math.abs(pu.y - this.playerY);
+          if (dist <= this.magnetRadius) {
+            this.collectPowerUp(i);
+          }
+        }
+      }
+    }
+
+    // Screen flash decay
+    if (this.screenFlash) {
+      this.screenFlash.timer -= delta;
+      if (this.screenFlash.timer <= 0) {
+        this.screenFlash = null;
+      } else {
+        this.screenFlash.intensity *= 0.9;
+      }
+    }
+
     // Track survival time
-    if (this.mode === GameMode.Survival && this.timeElapsed > this.longestSurvivalTime) {
+    if ((this.mode === GameMode.Survival || this.mode === GameMode.Endless) && this.timeElapsed > this.longestSurvivalTime) {
       this.longestSurvivalTime = this.timeElapsed;
     }
 
@@ -1092,6 +1167,24 @@ export class GameManager {
       this.state = GameState.GameOver;
       this.updateStats();
       return result;
+    }
+
+    // Endless mode wave management
+    if (this.mode === GameMode.Endless) {
+      this.endlessWaveTimer -= delta;
+      const allDead = this.enemies.every(e => !e.alive);
+      if (allDead || this.endlessWaveTimer <= 0) {
+        this.endlessTotalWavesCleared++;
+        this.endlessWave++;
+        this.level = this.endlessWave;
+        this.score += this.endlessWave * 300;
+        this.addScorePopup(Math.floor(GRID_W / 2), Math.floor(GRID_H / 2), this.endlessWave * 300, 0x00ffff);
+        this.screenFlash = { color: 0x00ffff, intensity: 0.5, timer: 0.5 };
+        // Remove dead enemies
+        this.enemies = this.enemies.filter(e => e.alive);
+        this.spawnEndlessWave();
+        result.levelComplete = true;
+      }
     }
 
     // Interpolate player visual position
@@ -1228,30 +1321,32 @@ export class GameManager {
       }
     }
 
-    // Check level complete
-    const allDead = this.enemies.every(e => !e.alive);
-    if (allDead) {
-      if (this.mode === GameMode.Puzzle) {
-        // In puzzle mode, must reach exit
-        if (this.exitRevealed && this.playerX === this.exitX && this.playerY === this.exitY) {
+    // Check level complete (Endless mode handles its own wave transitions above)
+    if (this.mode !== GameMode.Endless) {
+      const allDead = this.enemies.every(e => !e.alive);
+      if (allDead) {
+        if (this.mode === GameMode.Puzzle) {
+          // In puzzle mode, must reach exit
+          if (this.exitRevealed && this.playerX === this.exitX && this.playerY === this.exitY) {
+            result.levelComplete = true;
+            if (this.level >= PUZZLE_LEVELS.length) {
+              this.state = GameState.Victory;
+              this.score += 10000;
+            } else {
+              this.beginLevelTransition();
+            }
+          }
+          // else: wait for player to reach exit
+        } else if (this.mode === GameMode.Survival) {
+          this.beginLevelTransition();
+        } else {
           result.levelComplete = true;
-          if (this.level >= PUZZLE_LEVELS.length) {
+          if (this.level >= 5 + this.difficulty * 2) {
             this.state = GameState.Victory;
-            this.score += 10000;
+            this.score += 5000;
           } else {
             this.beginLevelTransition();
           }
-        }
-        // else: wait for player to reach exit
-      } else if (this.mode === GameMode.Survival) {
-        this.beginLevelTransition();
-      } else {
-        result.levelComplete = true;
-        if (this.level >= 5 + this.difficulty * 2) {
-          this.state = GameState.Victory;
-          this.score += 5000;
-        } else {
-          this.beginLevelTransition();
         }
       }
     }
@@ -1292,8 +1387,9 @@ export class GameManager {
           // Chance to drop power-up
           if (Math.random() < 0.3) {
             const types = [PowerUpType.ExtraBomb, PowerUpType.BlastRange, PowerUpType.Speed,
-              PowerUpType.PassThrough, PowerUpType.RemoteDetonate, PowerUpType.Shield, PowerUpType.BombKick];
-            const weights = [3, 3, 2, 1, 1, 1, 1];
+              PowerUpType.PassThrough, PowerUpType.RemoteDetonate, PowerUpType.Shield, PowerUpType.BombKick,
+              PowerUpType.TimeFreeze, PowerUpType.Magnet];
+            const weights = [3, 3, 2, 1, 1, 1, 1, 1, 1];
             const total = weights.reduce((a, b) => a + b, 0);
             let rnd = Math.random() * total;
             let pType = types[0];
@@ -1330,6 +1426,7 @@ export class GameManager {
         this.shieldTimer = 0;
       } else {
         result.playerHit = true;
+        this.screenFlash = { color: 0xff0000, intensity: 0.6, timer: 0.5 };
         this.lives--;
         if (this.lives <= 0) {
           this.state = GameState.GameOver;
@@ -1380,11 +1477,14 @@ export class GameManager {
   }
 
   private updateEnemies(delta: number, result: { enemiesHit: EnemyData[]; playerHit: boolean; enemyTeleported: EnemyData | null }) {
+    // Apply time freeze slow factor
+    const enemyDelta = this.hasTimeFreeze ? delta * this.timeFreezeSlowFactor : delta;
+
     for (const enemy of this.enemies) {
       if (!enemy.alive) continue;
 
-      enemy.moveTimer -= delta;
-      if (enemy.bombCooldown > 0) enemy.bombCooldown -= delta;
+      enemy.moveTimer -= enemyDelta;
+      if (enemy.bombCooldown > 0) enemy.bombCooldown -= enemyDelta;
 
       // Interpolate visual position
       enemy.visualX += (enemy.x - enemy.visualX) * Math.min(1, 8 * delta);
@@ -1563,6 +1663,17 @@ export class GameManager {
   }
 
   private chaseMoveEnemy(enemy: EnemyData) {
+    // BFS pathfinding for smarter chase behavior
+    const path = this.bfsPath(enemy.x, enemy.y, this.playerX, this.playerY);
+    if (path && path.length > 1) {
+      const next = path[1]; // path[0] is current position
+      if (this.canMoveEnemy(next.x, next.y)) {
+        enemy.x = next.x;
+        enemy.y = next.y;
+        return;
+      }
+    }
+    // Fallback to greedy if BFS fails
     const dx = this.playerX - enemy.x;
     const dy = this.playerY - enemy.y;
     const moves: Array<[number, number]> = [];
@@ -1587,6 +1698,42 @@ export class GameManager {
     if (!moved) {
       this.randomMoveEnemy(enemy);
     }
+  }
+
+  // BFS shortest path from (sx,sy) to (tx,ty)
+  private bfsPath(sx: number, sy: number, tx: number, ty: number): Array<{x: number; y: number}> | null {
+    if (sx === tx && sy === ty) return [{x: sx, y: sy}];
+
+    const visited = new Set<string>();
+    const queue: Array<{x: number; y: number; path: Array<{x: number; y: number}>}> = [];
+    visited.add(`${sx}_${sy}`);
+    queue.push({x: sx, y: sy, path: [{x: sx, y: sy}]});
+
+    const dirs = [[1, 0], [-1, 0], [0, 1], [0, -1]];
+    let steps = 0;
+    const maxSteps = 80; // Limit search depth
+
+    while (queue.length > 0 && steps < maxSteps) {
+      const curr = queue.shift()!;
+      steps++;
+
+      for (const [ddx, ddy] of dirs) {
+        const nx = curr.x + ddx;
+        const ny = curr.y + ddy;
+        const key = `${nx}_${ny}`;
+
+        if (visited.has(key)) continue;
+        if (!this.canMoveEnemy(nx, ny)) continue;
+
+        visited.add(key);
+        const newPath = [...curr.path, {x: nx, y: ny}];
+
+        if (nx === tx && ny === ty) return newPath;
+        queue.push({x: nx, y: ny, path: newPath});
+      }
+    }
+
+    return null; // No path found within budget
   }
 
   private patrolMoveEnemy(enemy: EnemyData) {
@@ -1636,6 +1783,107 @@ export class GameManager {
       enemy.visualX = tx;
       enemy.visualY = ty;
     }
+  }
+
+  spawnEndlessWave() {
+    // Endless mode: each wave gets progressively harder
+    const wave = this.endlessWave;
+    const count = Math.min(3 + wave, 9);
+    const types: Array<EnemyData['type']> = ['wander', 'chase', 'bomber', 'patrol', 'teleporter'];
+
+    const spawns = [
+      { x: GRID_W - 2, y: 1 },
+      { x: 1, y: GRID_H - 2 },
+      { x: GRID_W - 2, y: GRID_H - 2 },
+      { x: Math.floor(GRID_W / 2), y: 1 },
+      { x: Math.floor(GRID_W / 2), y: GRID_H - 2 },
+      { x: 1, y: Math.floor(GRID_H / 2) },
+      { x: GRID_W - 2, y: Math.floor(GRID_H / 2) },
+      { x: 3, y: 1 },
+      { x: GRID_W - 4, y: GRID_H - 2 },
+    ];
+
+    for (let i = 0; i < Math.min(count, spawns.length); i++) {
+      const sp = spawns[i];
+      // Make sure spawn point is clear
+      if (this.grid[sp.y][sp.x] !== CellType.Empty && this.grid[sp.y][sp.x] !== CellType.PowerUp) continue;
+
+      const type = types[i % types.length];
+      const speedBase = 0.8 + wave * 0.08 + this.difficulty * 0.3;
+      const speedMod = type === 'chase' ? 0.3 : type === 'patrol' ? 0.1 : type === 'teleporter' ? -0.1 : 0;
+      const hp = type === 'teleporter' ? 2 + Math.floor(wave / 5) : 1 + Math.floor(wave / 8);
+      this.enemies.push({
+        x: sp.x, y: sp.y,
+        targetX: sp.x, targetY: sp.y,
+        moveTimer: 0,
+        moveSpeed: Math.min(speedBase + speedMod, 3.0),
+        alive: true,
+        type,
+        visualX: sp.x, visualY: sp.y,
+        bombCooldown: 0,
+        patrolDir: 0,
+        teleportCooldown: 6 + Math.random() * 4,
+        hp,
+        maxHp: hp,
+        isBoss: false,
+        bossPhase: 0,
+        bossAttackTimer: 0,
+      });
+    }
+
+    // Boss every 5 waves
+    if (wave % 5 === 0) {
+      const cx = Math.floor(GRID_W / 2);
+      const cy = Math.floor(GRID_H / 2);
+      for (let dy = -1; dy <= 1; dy++) {
+        for (let dx = -1; dx <= 1; dx++) {
+          const bx = cx + dx, by = cy + dy;
+          if (bx > 0 && bx < GRID_W - 1 && by > 0 && by < GRID_H - 1) {
+            if (this.grid[by][bx] === CellType.SoftBlock) {
+              this.grid[by][bx] = CellType.Empty;
+            }
+          }
+        }
+      }
+      const bossHp = 10 + wave * 2;
+      this.enemies.push({
+        x: cx, y: cy,
+        targetX: cx, targetY: cy,
+        moveTimer: 0,
+        moveSpeed: 0.5 + wave * 0.03,
+        alive: true,
+        type: 'chase',
+        visualX: cx, visualY: cy,
+        bombCooldown: 0,
+        patrolDir: 0,
+        teleportCooldown: 8,
+        hp: bossHp,
+        maxHp: bossHp,
+        isBoss: true,
+        bossPhase: 0,
+        bossAttackTimer: 3,
+      });
+    }
+
+    // Add some soft blocks back each wave for cover
+    if (wave > 1) {
+      const blockCount = 5 + Math.floor(Math.random() * 5);
+      for (let b = 0; b < blockCount; b++) {
+        const rx = 2 + Math.floor(Math.random() * (GRID_W - 4));
+        const ry = 2 + Math.floor(Math.random() * (GRID_H - 4));
+        if (this.grid[ry][rx] === CellType.Empty && !(rx <= 2 && ry <= 2)) {
+          this.grid[ry][rx] = CellType.SoftBlock;
+        }
+      }
+    }
+
+    // Spawn some hazards for later waves
+    if (wave >= 3) {
+      this.spawnHazards();
+    }
+
+    this.endlessKillsThisWave = 0;
+    this.endlessWaveTimer = this.endlessWaveDuration + wave * 5;
   }
 
   private canMoveEnemy(x: number, y: number): boolean {
@@ -1707,6 +1955,15 @@ export class GameManager {
         break;
       case PowerUpType.BombKick:
         this.hasBombKick = true;
+        break;
+      case PowerUpType.TimeFreeze:
+        this.hasTimeFreeze = true;
+        this.timeFreezeTimer = 10;
+        this.screenFlash = { color: 0x4488ff, intensity: 0.4, timer: 0.3 };
+        break;
+      case PowerUpType.Magnet:
+        this.hasMagnet = true;
+        this.magnetTimer = 20;
         break;
     }
   }
@@ -1822,6 +2079,17 @@ export class GameManager {
       { id: 'score_500k', name: 'Half Million', cond: () => this.totalScore >= 500000 },
       { id: 'multi_x6', name: 'Hex Damage', cond: () => this.maxMultiplier >= 6 },
       { id: 'level_25', name: 'Transcendent', cond: () => this.level >= 25 },
+      // Round 4 new achievements
+      { id: 'time_freeze', name: 'Frozen in Time', cond: () => this.hasTimeFreeze },
+      { id: 'magnet_collect', name: 'Magnetic Personality', cond: () => this.hasMagnet },
+      { id: 'endless_w5', name: 'Wave 5', cond: () => this.mode === GameMode.Endless && this.endlessWave >= 5 },
+      { id: 'endless_w10', name: 'Wave Rider', cond: () => this.mode === GameMode.Endless && this.endlessWave >= 10 },
+      { id: 'endless_w20', name: 'Tsunami', cond: () => this.mode === GameMode.Endless && this.endlessWave >= 20 },
+      { id: 'all_modes_play', name: 'Jack of All Trades', cond: () => this.totalGames >= 5 },
+      { id: 'multi_kills_5', name: 'Multi Kill', cond: () => this.comboCount >= 5 },
+      { id: 'boss_kill_5', name: 'Boss Hunter', cond: () => this.bossesKilled >= 5 },
+      { id: 'total_1m', name: 'Millionaire', cond: () => this.totalScore >= 1000000 },
+      { id: 'kill_500', name: 'Extermination', cond: () => this.totalEnemiesKilled >= 500 },
     ];
 
     for (const check of checks) {
@@ -1860,11 +2128,15 @@ export class GameManager {
       boss_desperate: 'Pushed to the Edge', puzzle_10: 'Puzzle Legend',
       bomb_kick: 'Kick Start', warp_used: 'Warp Drive',
       score_500k: 'Half Million', multi_x6: 'Hex Damage', level_25: 'Transcendent',
+      time_freeze: 'Frozen in Time', magnet_collect: 'Magnetic Personality',
+      endless_w5: 'Wave 5', endless_w10: 'Wave Rider', endless_w20: 'Tsunami',
+      all_modes_play: 'Jack of All Trades', multi_kills_5: 'Multi Kill',
+      boss_kill_5: 'Boss Hunter', total_1m: 'Millionaire', kill_500: 'Extermination',
     };
     return names[id] || id;
   }
 
-  get totalAchievementCount() { return 70; }
+  get totalAchievementCount() { return 80; }
 
   getEnemyCountForNextLevel(): number {
     return 2 + (this.level + 1) + this.difficulty;

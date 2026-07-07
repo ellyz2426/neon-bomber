@@ -6,7 +6,7 @@
   width="100%"
   height="100%"
   padding="4"
-  gap="6"
+  gap="5"
   backgroundColor="#00000066"
   borderRadius="6"
 >
@@ -17,4 +17,6 @@
   <text name="pu-remote" fontSize="10" color="#555555">RD</text>
   <text name="pu-shield" fontSize="10" color="#555555">SH</text>
   <text name="pu-kick" fontSize="10" color="#555555">KK</text>
+  <text name="pu-freeze" fontSize="10" color="#555555">FZ</text>
+  <text name="pu-magnet" fontSize="10" color="#555555">MG</text>
 </container>

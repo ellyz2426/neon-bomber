@@ -196,6 +196,13 @@ export class GameUISystem extends createSystem({
       this.showPanel('playing');
     });
 
+    onClick(doc, 'btn-endless', () => {
+      this.game.startGame(GameMode.Endless);
+      this.gameSystem.showGame();
+      this.gameSystem.applyTheme();
+      this.showPanel('playing');
+    });
+
     onClick(doc, 'btn-settings', () => {
       this.showPanel('settings');
     });
@@ -431,7 +438,12 @@ export class GameUISystem extends createSystem({
     if (!this.hudDoc) return;
     setText(this.hudDoc, 'score', `Score: ${Math.floor(this.game.score)}`);
     setText(this.hudDoc, 'lives', `Lives: ${this.game.lives}`);
-    setText(this.hudDoc, 'level', `Lv ${this.game.level}`);
+
+    if (this.game.mode === GameMode.Endless) {
+      setText(this.hudDoc, 'level', `Wave ${this.game.endlessWave}`);
+    } else {
+      setText(this.hudDoc, 'level', `Lv ${this.game.level}`);
+    }
 
     if (this.game.mode === GameMode.Timed || this.game.mode === GameMode.Puzzle) {
       const remaining = Math.max(0, this.game.timeLimit - this.game.timeElapsed);
@@ -443,6 +455,16 @@ export class GameUISystem extends createSystem({
         setColor(this.hudDoc, 'timer', '#ff4444');
       } else if (remaining < 60) {
         setColor(this.hudDoc, 'timer', '#ffcc00');
+      } else {
+        setColor(this.hudDoc, 'timer', '#88ccff');
+      }
+    } else if (this.game.mode === GameMode.Endless) {
+      // Show wave timer
+      const remaining = Math.max(0, this.game.endlessWaveTimer);
+      const sec = Math.floor(remaining);
+      setText(this.hudDoc, 'timer', `${sec}s`);
+      if (remaining < 10) {
+        setColor(this.hudDoc, 'timer', '#ff4444');
       } else {
         setColor(this.hudDoc, 'timer', '#88ccff');
       }
@@ -486,6 +508,8 @@ export class GameUISystem extends createSystem({
     const shieldActive = this.game.hasShield && this.game.shieldTimer > 0;
     setColor(this.powerupsDoc, 'pu-shield', shieldActive ? '#00ffff' : '#555555');
     setColor(this.powerupsDoc, 'pu-kick', this.game.hasBombKick ? '#ff6644' : '#555555');
+    setColor(this.powerupsDoc, 'pu-freeze', this.game.hasTimeFreeze ? '#4488ff' : '#555555');
+    setColor(this.powerupsDoc, 'pu-magnet', this.game.hasMagnet ? '#ff88ff' : '#555555');
   }
 
   private updatePauseDisplay() {
