@@ -121,10 +121,16 @@ async function main() {
   anOff[0] = 0; anOff[1] = 0.32; anOff[2] = -0.6;
   achNotifyEntity.object3D!.visible = false;
 
+  // Create statistics panel
+  const statsEntity = world.createTransformEntity();
+  statsEntity.object3D!.position.set(0, 4, -2);
+  statsEntity.object3D!.visible = false;
+  statsEntity.addComponent(PanelUI, { config: './ui/stats.json' });
+
   uiSystem.setPanelEntities(
     hudEntity, menuEntity, gameoverEntity, settingsEntity,
     pauseEntity, achievementsEntity, powerupsEntity, transitionEntity,
-    howtoEntity, achNotifyEntity
+    howtoEntity, achNotifyEntity, statsEntity
   );
 }
 

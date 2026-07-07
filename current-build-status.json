@@ -7,7 +7,7 @@
   "pages_url": "https://ellyz2426.github.io/neon-bomber/",
   "build_start_utc": "2026-07-07T07:00:00Z",
   "target_hours": 6,
-  "total_build_minutes": 125,
+  "total_build_minutes": 115,
   "status": "building",
   "rounds": [
     {
@@ -37,6 +37,16 @@
       "duration_minutes": 40,
       "features": "Bomb kick mechanic (BombKick power-up, sliding bomb physics), warp portals (paired teleport tiles from level 5+, cooldown system), score popup floating numbers (visual feedback for kills/blocks), achievement unlock notifications (head-locked PanelUI panel with sound), power-up collection particle burst effect, 70 achievements (5 new: Kick Start/Warp Drive/Half Million/Hex Damage/Transcendent), 10 PanelUI panels, ASCII-clean glyphs",
       "loc": 4853,
+      "panels": 10,
+      "deployed": true
+    },
+    {
+      "round": 4,
+      "start_utc": "2026-07-07T12:58:00Z",
+      "end_utc": "2026-07-07T13:11:31Z",
+      "duration_minutes": 30,
+      "features": "BFS pathfinding for chase/boss enemies, Endless mode (5th game mode - infinite escalating waves with boss every 5 waves), 2 new power-ups (Time Freeze slows enemies to 20%%, Magnet auto-collects nearby power-ups), screen flash effects on player hit/wave clear, dynamic time freeze visual overlay, career stats expanded, 80 achievements (10 new: Frozen in Time/Magnetic Personality/Wave 5/Wave Rider/Tsunami/Jack of All Trades/Multi Kill/Boss Hunter/Millionaire/Extermination)",
+      "loc": 4716,
       "panels": 10,
       "deployed": true
     }
@@ -87,7 +97,15 @@
     "Bomb kick sound effect",
     "Warp portal sound effect",
     "70 achievements total (5 new)",
-    "10 PanelUI panels (achnotify added)"
+    "10 PanelUI panels (achnotify added)",
+    "BFS pathfinding for chase and boss enemies",
+    "Endless mode: infinite escalating waves, boss every 5 waves",
+    "Time Freeze power-up (enemies at 20%% speed for 10s)",
+    "Magnet power-up (auto-collect nearby power-ups for 20s)",
+    "Screen flash effects (red on damage, cyan on wave clear)",
+    "Time freeze visual overlay",
+    "80 achievements (10 new including wave/endless achievements)",
+    "10 PanelUI panels (added freeze+magnet indicators)"
   ],
-  "last_updated_utc": "2026-07-07T12:58:46Z"
+  "last_updated_utc": "2026-07-07T13:58:11Z"
 }

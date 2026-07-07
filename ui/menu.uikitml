@@ -93,7 +93,7 @@
       backgroundColor="#111122"
       padding="7"
       borderRadius="6"
-      width="33%"
+      width="25%"
       textAlign="center"
       cursor="pointer"
       hover-backgroundColor="#222244"
@@ -106,7 +106,7 @@
       backgroundColor="#221100"
       padding="7"
       borderRadius="6"
-      width="33%"
+      width="25%"
       textAlign="center"
       cursor="pointer"
       hover-backgroundColor="#442200"
@@ -119,11 +119,24 @@
       backgroundColor="#001122"
       padding="7"
       borderRadius="6"
-      width="33%"
+      width="25%"
       textAlign="center"
       cursor="pointer"
       hover-backgroundColor="#002244"
     >HOW TO PLAY</text>
+
+    <text
+      name="btn-stats"
+      fontSize="13"
+      color="#88ff88"
+      backgroundColor="#002211"
+      padding="7"
+      borderRadius="6"
+      width="25%"
+      textAlign="center"
+      cursor="pointer"
+      hover-backgroundColor="#003322"
+    >STATS</text>
   </container>
 
   <container flexDirection="column" gap="3" alignItems="center" marginTop="4">

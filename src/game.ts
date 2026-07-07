@@ -71,7 +71,7 @@ export interface EnemyData {
   moveTimer: number;
   moveSpeed: number;
   alive: boolean;
-  type: 'wander' | 'chase' | 'bomber' | 'patrol' | 'teleporter';
+  type: 'wander' | 'chase' | 'bomber' | 'patrol' | 'teleporter' | 'splitter';
   visualX: number;
   visualY: number;
   bombCooldown: number;
@@ -82,6 +82,7 @@ export interface EnemyData {
   isBoss: boolean;
   bossPhase: number; // 0=normal, 1=enraged, 2=desperate
   bossAttackTimer: number;
+  splitCount: number; // how many times this enemy can still split (splitter type)
 }
 
 export interface PowerUpData {
@@ -108,6 +109,12 @@ export interface ConveyorData {
   y: number;
   dx: number; // push direction
   dy: number;
+}
+
+// Ice patch tile
+export interface IcePatchData {
+  x: number;
+  y: number;
 }
 
 // Warp portal pair
@@ -430,6 +437,11 @@ export class GameManager {
   conveyors: ConveyorData[] = [];
   dangerZones: DangerZone[] = [];
   warpPortals: WarpPortalData[] = [];
+  icePatches: IcePatchData[] = [];
+
+  // Player sliding on ice
+  isSliding = false;
+  slideDirection: [number, number] = [0, 0];
 
   // Score multiplier
   multiplier = 1;
@@ -465,6 +477,11 @@ export class GameManager {
   endlessWaveDuration = 45;
   endlessKillsThisWave = 0;
   endlessTotalWavesCleared = 0;
+
+  // Per-mode best scores
+  modeBestScores: Record<string, number> = {};
+  splittersKilled = 0;
+  totalSplittersSpawned = 0;
 
   // Screen flash
   screenFlash: { color: number; intensity: number; timer: number } | null = null;
@@ -506,6 +523,8 @@ export class GameManager {
         this.difficulty = save.difficulty ?? 1;
         this.themeIndex = save.themeIndex ?? 0;
         this.sfxVolume = save.sfxVolume ?? 0.7;
+        this.modeBestScores = save.modeBestScores || {};
+        this.splittersKilled = save.splittersKilled || 0;
       }
     } catch { /* localStorage may not be available */ }
   }
@@ -528,6 +547,8 @@ export class GameManager {
         difficulty: this.difficulty,
         themeIndex: this.themeIndex,
         sfxVolume: this.sfxVolume,
+        modeBestScores: this.modeBestScores,
+        splittersKilled: this.splittersKilled,
       };
       localStorage.setItem('neon-bomber-save', JSON.stringify(save));
     } catch { /* localStorage may not be available */ }
@@ -623,6 +644,7 @@ export class GameManager {
         isBoss: false,
         bossPhase: 0,
         bossAttackTimer: 0,
+        splitCount: 0,
       });
     }
 
@@ -670,20 +692,23 @@ export class GameManager {
       { x: GRID_W - 4, y: GRID_H - 2 },
     ];
 
-    const types: Array<EnemyData['type']> = ['wander', 'chase', 'bomber', 'patrol', 'teleporter'];
+    const types: Array<EnemyData['type']> = ['wander', 'chase', 'bomber', 'patrol', 'teleporter', 'splitter'];
     for (let i = 0; i < Math.min(count, spawns.length); i++) {
       const sp = spawns[i];
-      // Introduce patrol/teleporter in later levels
+      // Introduce enemy types progressively
       let type: EnemyData['type'];
       if (this.level <= 2) {
         type = types[i % 3]; // wander, chase, bomber only
       } else if (this.level <= 4) {
         type = types[i % 4]; // add patrol
+      } else if (this.level <= 6) {
+        type = types[i % 5]; // add teleporter
       } else {
-        type = types[i % 5]; // all types
+        type = types[i % 6]; // add splitter
       }
       const speedBase = 0.8 + this.difficulty * 0.3;
-      const speedMod = type === 'chase' ? 0.3 : type === 'patrol' ? 0.1 : type === 'teleporter' ? -0.2 : 0;
+      const speedMod = type === 'chase' ? 0.3 : type === 'patrol' ? 0.1 : type === 'teleporter' ? -0.2 : type === 'splitter' ? 0.15 : 0;
+      const splitCount = type === 'splitter' ? 1 : 0;
       this.enemies.push({
         x: sp.x, y: sp.y,
         targetX: sp.x, targetY: sp.y,
@@ -695,11 +720,12 @@ export class GameManager {
         bombCooldown: 0,
         patrolDir: 0,
         teleportCooldown: 6 + Math.random() * 4,
-        hp: type === 'teleporter' ? 2 : 1,
-        maxHp: type === 'teleporter' ? 2 : 1,
+        hp: type === 'teleporter' ? 2 : type === 'splitter' ? 2 : 1,
+        maxHp: type === 'teleporter' ? 2 : type === 'splitter' ? 2 : 1,
         isBoss: false,
         bossPhase: 0,
         bossAttackTimer: 0,
+        splitCount,
       });
     }
 
@@ -735,6 +761,7 @@ export class GameManager {
         isBoss: true,
         bossPhase: 0,
         bossAttackTimer: 3,
+        splitCount: 0,
       });
     }
   }
@@ -742,6 +769,7 @@ export class GameManager {
   spawnHazards() {
     this.lasers = [];
     this.conveyors = [];
+    this.icePatches = [];
 
     // Lasers appear from level 3+
     if (this.level >= 3) {
@@ -825,6 +853,29 @@ export class GameManager {
         }
       }
     }
+
+    // Ice patches appear from level 6+
+    if (this.level >= 6 && this.mode !== GameMode.Puzzle) {
+      const patchCount = Math.min(this.level - 5 + this.difficulty, 8);
+      for (let i = 0; i < patchCount; i++) {
+        let ix: number, iy: number;
+        let attempts = 0;
+        do {
+          ix = 2 + Math.floor(Math.random() * (GRID_W - 4));
+          iy = 2 + Math.floor(Math.random() * (GRID_H - 4));
+          attempts++;
+        } while (
+          attempts < 20 &&
+          (this.grid[iy][ix] !== CellType.Empty ||
+            (ix <= 2 && iy <= 2) ||
+            this.icePatches.some(p => p.x === ix && p.y === iy) ||
+            this.conveyors.some(c => c.x === ix && c.y === iy))
+        );
+        if (attempts < 20) {
+          this.icePatches.push({ x: ix, y: iy });
+        }
+      }
+    }
   }
 
   computeDangerZones() {
@@ -873,6 +924,9 @@ export class GameManager {
     this.conveyors = [];
     this.dangerZones = [];
     this.warpPortals = [];
+    this.icePatches = [];
+    this.isSliding = false;
+    this.slideDirection = [0, 0];
     this.playerTrail = [];
     this.scorePopups = [];
     this.achievementNotifications = [];
@@ -1029,6 +1083,12 @@ export class GameManager {
       }
     }
 
+    // Check if player stepped on ice patch → start sliding
+    if (this.icePatches.some(p => p.x === this.playerX && p.y === this.playerY)) {
+      this.isSliding = true;
+      this.slideDirection = [dx, dy];
+    }
+
     // Check puzzle exit
     if (this.mode === GameMode.Puzzle && this.exitRevealed && this.playerX === this.exitX && this.playerY === this.exitY) {
       if (this.enemies.every(e => !e.alive)) {
@@ -1087,6 +1147,8 @@ export class GameManager {
     conveyorPush: boolean;
     bombKicked: BombData | null;
     playerWarped: boolean;
+    enemySplit: EnemyData | null;
+    playerSliding: boolean;
   } {
     const result = {
       exploded: [] as BombData[],
@@ -1101,6 +1163,8 @@ export class GameManager {
       conveyorPush: false,
       bombKicked: null as BombData | null,
       playerWarped: false,
+      enemySplit: null as EnemyData | null,
+      playerSliding: this.isSliding,
     };
 
     if (this.state === GameState.LevelTransition) {
@@ -1191,6 +1255,29 @@ export class GameManager {
     const lerpSpeed = 12;
     this.playerVisualX += (this.playerX - this.playerVisualX) * Math.min(1, lerpSpeed * delta);
     this.playerVisualY += (this.playerY - this.playerVisualY) * Math.min(1, lerpSpeed * delta);
+
+    // Ice sliding: continue moving in slide direction
+    if (this.isSliding && this.playerMoveTimer <= 0) {
+      const [sdx, sdy] = this.slideDirection;
+      const snx = this.playerX + sdx;
+      const sny = this.playerY + sdy;
+      if (this.canMove(snx, sny)) {
+        this.playerX = snx;
+        this.playerY = sny;
+        this.playerMoveTimer = 1.0 / (this.speed * 1.5); // slide faster
+        // Check if still on ice
+        if (!this.icePatches.some(p => p.x === this.playerX && p.y === this.playerY)) {
+          this.isSliding = false;
+        }
+        // Check collisions at new position
+        this.checkPlayerEnemyCollision();
+        // Check power-up
+        const pIdx = this.powerUps.findIndex(p => p.x === snx && p.y === sny && !p.collected);
+        if (pIdx >= 0) this.collectPowerUp(pIdx);
+      } else {
+        this.isSliding = false;
+      }
+    }
 
     // Update bombs
     for (let i = this.bombs.length - 1; i >= 0; i--) {
@@ -1454,10 +1541,12 @@ export class GameManager {
           this.enemiesKilled++;
           this.totalEnemiesKilled++;
           if (enemy.isBoss) this.bossesKilled++;
+          if (enemy.type === 'splitter') this.splittersKilled++;
           let baseScore = enemy.type === 'bomber' ? 300 :
             enemy.type === 'chase' ? 200 :
             enemy.type === 'teleporter' ? 400 :
-            enemy.type === 'patrol' ? 250 : 100;
+            enemy.type === 'patrol' ? 250 :
+            enemy.type === 'splitter' ? 350 : 100;
           if (enemy.isBoss) baseScore = 2000 + this.level * 500;
           const totalScore = Math.floor(baseScore * this.multiplier * (1 + this.comboCount * 0.5));
           this.score += totalScore;
@@ -1468,6 +1557,40 @@ export class GameManager {
           this.comboCount++;
           this.comboTimer = 2.0;
           result.enemiesHit.push(enemy);
+
+          // Splitter: spawn two mini wanderers on death
+          if (enemy.type === 'splitter' && enemy.splitCount > 0) {
+            const dirs = [[1, 0], [-1, 0], [0, 1], [0, -1]];
+            let spawned = 0;
+            for (const [dx, dy] of dirs) {
+              if (spawned >= 2) break;
+              const sx = Math.round(enemy.visualX) + dx;
+              const sy = Math.round(enemy.visualY) + dy;
+              if (sx > 0 && sx < GRID_W - 1 && sy > 0 && sy < GRID_H - 1 &&
+                  this.grid[sy][sx] !== CellType.HardBlock &&
+                  this.grid[sy][sx] !== CellType.SoftBlock &&
+                  this.grid[sy][sx] !== CellType.Bomb) {
+                this.enemies.push({
+                  x: sx, y: sy,
+                  targetX: sx, targetY: sy,
+                  moveTimer: 0.5,
+                  moveSpeed: enemy.moveSpeed * 1.3,
+                  alive: true,
+                  type: 'wander',
+                  visualX: Math.round(enemy.visualX),
+                  visualY: Math.round(enemy.visualY),
+                  bombCooldown: 0,
+                  patrolDir: 0,
+                  teleportCooldown: 0,
+                  hp: 1, maxHp: 1,
+                  isBoss: false, bossPhase: 0, bossAttackTimer: 0,
+                  splitCount: 0,
+                });
+                this.totalSplittersSpawned++;
+                spawned++;
+              }
+            }
+          }
         }
       }
     }
@@ -1546,6 +1669,13 @@ export class GameManager {
         } else if (enemy.type === 'teleporter') {
           // Teleporters chase slowly
           if (Math.random() < 0.6) {
+            this.chaseMoveEnemy(enemy);
+          } else {
+            this.randomMoveEnemy(enemy);
+          }
+        } else if (enemy.type === 'splitter') {
+          // Splitters wander but occasionally chase
+          if (Math.random() < 0.35) {
             this.chaseMoveEnemy(enemy);
           } else {
             this.randomMoveEnemy(enemy);
@@ -1828,6 +1958,7 @@ export class GameManager {
         isBoss: false,
         bossPhase: 0,
         bossAttackTimer: 0,
+        splitCount: 0,
       });
     }
 
@@ -1862,6 +1993,7 @@ export class GameManager {
         isBoss: true,
         bossPhase: 0,
         bossAttackTimer: 3,
+        splitCount: 0,
       });
     }
 
@@ -1997,6 +2129,11 @@ export class GameManager {
   private updateStats() {
     if (this.score > this.bestScore) this.bestScore = this.score;
     this.totalScore += this.score;
+    // Per-mode best scores
+    const modeKey = GameMode[this.mode];
+    if (!this.modeBestScores[modeKey] || this.score > this.modeBestScores[modeKey]) {
+      this.modeBestScores[modeKey] = this.score;
+    }
     if (this.enemies.every(e => !e.alive) && this.lives > 0) {
       this.perfectClears++;
     }
@@ -2090,6 +2227,17 @@ export class GameManager {
       { id: 'boss_kill_5', name: 'Boss Hunter', cond: () => this.bossesKilled >= 5 },
       { id: 'total_1m', name: 'Millionaire', cond: () => this.totalScore >= 1000000 },
       { id: 'kill_500', name: 'Extermination', cond: () => this.totalEnemiesKilled >= 500 },
+      // Round 5: splitter, ice, leaderboard achievements
+      { id: 'splitter_kill', name: 'Cell Division', cond: () => this.splittersKilled >= 1 },
+      { id: 'splitter_5', name: 'Mitosis Stopper', cond: () => this.splittersKilled >= 5 },
+      { id: 'ice_slide', name: 'Slip and Slide', cond: () => this.level >= 6 && this.icePatches.length > 0 },
+      { id: 'level_30', name: 'Ascendant', cond: () => this.level >= 30 },
+      { id: 'combo_25', name: 'Combo Deity', cond: () => this.maxCombo >= 25 },
+      { id: 'survive_20min', name: 'Marathon Runner', cond: () => this.timeElapsed >= 1200 },
+      { id: 'total_2m', name: 'Double Millionaire', cond: () => this.totalScore >= 2000000 },
+      { id: 'blocks_5000', name: 'Armageddon', cond: () => this.totalBlocksDestroyed >= 5000 },
+      { id: 'powerups_50', name: 'Hoarder', cond: () => this.totalPowerUpsCollected >= 50 },
+      { id: 'endless_w30', name: 'Tidal Wave', cond: () => this.mode === GameMode.Endless && this.endlessWave >= 30 },
     ];
 
     for (const check of checks) {
@@ -2132,11 +2280,15 @@ export class GameManager {
       endless_w5: 'Wave 5', endless_w10: 'Wave Rider', endless_w20: 'Tsunami',
       all_modes_play: 'Jack of All Trades', multi_kills_5: 'Multi Kill',
       boss_kill_5: 'Boss Hunter', total_1m: 'Millionaire', kill_500: 'Extermination',
+      splitter_kill: 'Cell Division', splitter_5: 'Mitosis Stopper', ice_slide: 'Slip and Slide',
+      level_30: 'Ascendant', combo_25: 'Combo Deity', survive_20min: 'Marathon Runner',
+      total_2m: 'Double Millionaire', blocks_5000: 'Armageddon', powerups_50: 'Hoarder',
+      endless_w30: 'Tidal Wave',
     };
     return names[id] || id;
   }
 
-  get totalAchievementCount() { return 80; }
+  get totalAchievementCount() { return 90; }
 
   getEnemyCountForNextLevel(): number {
     return 2 + (this.level + 1) + this.difficulty;

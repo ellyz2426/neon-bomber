@@ -1,0 +1,33 @@
+<panel width="420" height="520" backgroundColor="#0a0a1a" borderRadius="8" padding="12">
+  <text id="stats-title" fontSize="22" color="#00ffcc" fontWeight="bold">STATISTICS</text>
+
+  <panel width="396" height="1" backgroundColor="#224466" marginTop="6" marginBottom="6"></panel>
+
+  <text id="stat-games" fontSize="13" color="#88ccff">Games Played: 0</text>
+  <text id="stat-best" fontSize="13" color="#ffcc00">Best Score: 0</text>
+  <text id="stat-total" fontSize="13" color="#88ccff">Total Score: 0</text>
+  <text id="stat-kills" fontSize="13" color="#ff4488">Enemies Killed: 0</text>
+  <text id="stat-blocks" fontSize="13" color="#ff8800">Blocks Destroyed: 0</text>
+  <text id="stat-bombs" fontSize="13" color="#ff4444">Bombs Placed: 0</text>
+  <text id="stat-powerups" fontSize="13" color="#00ff88">Power-Ups Collected: 0</text>
+  <text id="stat-combos" fontSize="13" color="#ffff00">Best Combo: 0</text>
+  <text id="stat-perfects" fontSize="13" color="#00ffff">Perfect Clears: 0</text>
+  <text id="stat-survival" fontSize="13" color="#8888ff">Longest Survival: 0:00</text>
+  <text id="stat-fastest" fontSize="13" color="#ff88ff">Fastest Clear: --</text>
+  <text id="stat-achievements" fontSize="13" color="#ffcc00">Achievements: 0/90</text>
+
+  <panel width="396" height="1" backgroundColor="#224466" marginTop="6" marginBottom="6"></panel>
+
+  <text id="mode-label" fontSize="16" color="#00ffcc" fontWeight="bold">MODE BEST SCORES</text>
+  <text id="stat-classic" fontSize="12" color="#88ccff">Classic: --</text>
+  <text id="stat-timed" fontSize="12" color="#88ccff">Timed: --</text>
+  <text id="stat-survival-mode" fontSize="12" color="#88ccff">Survival: --</text>
+  <text id="stat-puzzle" fontSize="12" color="#88ccff">Puzzle: --</text>
+  <text id="stat-endless" fontSize="12" color="#88ccff">Endless: --</text>
+
+  <panel width="396" height="1" backgroundColor="#224466" marginTop="8" marginBottom="6"></panel>
+
+  <panel id="btn-stats-back" width="140" height="36" backgroundColor="#224466" borderRadius="4" justifyContent="center" alignItems="center" cursor="pointer" hover-backgroundColor="#336688">
+    <text fontSize="14" color="#00ffcc" fontWeight="bold">BACK</text>
+  </panel>
+</panel>

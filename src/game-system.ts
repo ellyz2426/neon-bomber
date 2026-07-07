@@ -20,7 +20,7 @@ import {
   LineSegments,
   InputComponent,
 } from '@iwsdk/core';
-import { GameManager, GRID_W, GRID_H, CELL_SIZE, CellType, PowerUpType, GameState, BombData, EnemyData, PowerUpData, LaserData, ScorePopup, WarpPortalData } from './game';
+import { GameManager, GRID_W, GRID_H, CELL_SIZE, CellType, PowerUpType, GameState, BombData, EnemyData, PowerUpData, LaserData, ScorePopup, WarpPortalData, IcePatchData } from './game';
 
 // Materials cache
 const MAT = {
@@ -37,6 +37,7 @@ const MAT = {
   enemyBomber: null as MeshStandardMaterial | null,
   enemyPatrol: null as MeshStandardMaterial | null,
   enemyTeleporter: null as MeshStandardMaterial | null,
+  enemySplitter: null as MeshStandardMaterial | null,
   gridLine: null as LineBasicMaterial | null,
   borderWall: null as MeshStandardMaterial | null,
   borderGlow: null as MeshBasicMaterial | null,
@@ -89,6 +90,7 @@ export class GameSystem extends createSystem({}) {
   private laserWarningMeshes: Map<number, Mesh[]> = new Map();
   private conveyorMeshes: Map<string, Group> = new Map();
   private warpPortalMeshes: Map<number, Group> = new Map();
+  private icePatchMeshes: Map<string, Mesh> = new Map();
   private scorePopupMeshes: Array<{ group: Group; life: number }> = [];
   private powerUpCollectEffects: Array<{ mesh: Mesh; vel: Vector3; life: number }> = [];
   private dangerZonePool: Mesh[] = [];
@@ -264,6 +266,7 @@ export class GameSystem extends createSystem({}) {
     MAT.enemyBomber = new MeshStandardMaterial({ color: 0xff8800, metalness: 0.4, roughness: 0.5, emissive: 0xff4400, emissiveIntensity: 0.5 });
     MAT.enemyPatrol = new MeshStandardMaterial({ color: 0x8844ff, metalness: 0.4, roughness: 0.5, emissive: 0x4400ff, emissiveIntensity: 0.5 });
     MAT.enemyTeleporter = new MeshStandardMaterial({ color: 0x00ff88, metalness: 0.6, roughness: 0.3, emissive: 0x00ff44, emissiveIntensity: 0.7 });
+    MAT.enemySplitter = new MeshStandardMaterial({ color: 0xffcc44, metalness: 0.5, roughness: 0.4, emissive: 0xff8800, emissiveIntensity: 0.5 });
     MAT.gridLine = new LineBasicMaterial({ color: 0x00ffff, transparent: true, opacity: 0.15 });
     MAT.borderWall = new MeshStandardMaterial({ color: 0x223344, metalness: 0.7, roughness: 0.3, emissive: 0x00ffff, emissiveIntensity: 0.15 });
     MAT.borderGlow = new MeshBasicMaterial({ color: 0x00ffff, transparent: true, opacity: 0.4, blending: AdditiveBlending });
@@ -435,6 +438,7 @@ export class GameSystem extends createSystem({}) {
     // Update hazard visuals
     this.updateLaserVisuals(time);
     this.updateConveyorVisuals(time);
+    this.updateIcePatchVisuals(time);
     this.updateDangerZoneVisuals(time);
     this.updateTrailVisuals();
     this.updateWarpPortalVisuals(time);
@@ -803,6 +807,19 @@ export class GameSystem extends createSystem({}) {
             );
             ring.position.y = 0.15;
             group.add(ring);
+          } else if (enemy.type === 'splitter') {
+            // Splitter: two-part body with a glowing split line
+            const body = new Mesh(GEO.enemy!, mat);
+            body.position.y = 0.35;
+            group.add(body);
+
+            // Split line
+            const splitLine = new Mesh(
+              new BoxGeometry(0.5, 0.03, 0.5),
+              new MeshBasicMaterial({ color: 0xffcc00, transparent: true, opacity: 0.7, blending: AdditiveBlending })
+            );
+            splitLine.position.y = 0.35;
+            group.add(splitLine);
           } else {
             const body = new Mesh(GEO.enemy!, mat);
             body.position.y = 0.35;
@@ -877,6 +894,15 @@ export class GameSystem extends createSystem({}) {
         if (group.children[1]) {
           group.children[1].rotation.y = this.animTime * 3;
         }
+      } else if (enemy.type === 'splitter') {
+        group.children[0].position.y = 0.35 + Math.sin(this.animTime * 3 + i) * 0.06;
+        // Pulsing split line
+        if (group.children[1]) {
+          const splitPulse = Math.sin(this.animTime * 6 + i) * 0.3 + 0.7;
+          (group.children[1] as Mesh).scale.set(1, 1, 1);
+          ((group.children[1] as Mesh).material as MeshBasicMaterial).opacity = splitPulse * 0.7;
+        }
+        group.rotation.y = this.animTime * 1.5;
       } else {
         group.children[0].position.y = 0.35 + Math.sin(this.animTime * 4 + i) * 0.05;
         group.rotation.y = Math.sin(this.animTime * 2 + i * 3) * 0.3;
@@ -897,6 +923,7 @@ export class GameSystem extends createSystem({}) {
       case 'bomber': return MAT.enemyBomber!;
       case 'patrol': return MAT.enemyPatrol!;
       case 'teleporter': return MAT.enemyTeleporter!;
+      case 'splitter': return MAT.enemySplitter!;
       default: return MAT.enemyWander!;
     }
   }
@@ -1040,6 +1067,7 @@ export class GameSystem extends createSystem({}) {
       case 'bomber': return 0xff8800;
       case 'patrol': return 0x8844ff;
       case 'teleporter': return 0x00ff88;
+      case 'splitter': return 0xffcc44;
       default: return 0xff4488;
     }
   }
@@ -1166,6 +1194,8 @@ export class GameSystem extends createSystem({}) {
     this.conveyorMeshes.clear();
     for (const [, group] of this.warpPortalMeshes) this.arenaGroup.remove(group);
     this.warpPortalMeshes.clear();
+    for (const [, mesh] of this.icePatchMeshes) this.arenaGroup.remove(mesh);
+    this.icePatchMeshes.clear();
     for (const sp of this.scorePopupMeshes) this.arenaGroup.remove(sp.group);
     this.scorePopupMeshes.length = 0;
     for (const p of this.powerUpCollectEffects) this.arenaGroup.remove(p.mesh);
@@ -1340,6 +1370,39 @@ export class GameSystem extends createSystem({}) {
       if (!activeKeys.has(key)) {
         this.arenaGroup.remove(group);
         this.conveyorMeshes.delete(key);
+      }
+    }
+  }
+
+  private updateIcePatchVisuals(time: number) {
+    const activeKeys = new Set<string>();
+
+    for (const patch of this.game.icePatches) {
+      const key = `${patch.x}_${patch.y}`;
+      activeKeys.add(key);
+      const [wx, , wz] = gridToWorld(patch.x, patch.y);
+
+      if (!this.icePatchMeshes.has(key)) {
+        const mat = new MeshBasicMaterial({
+          color: 0x88ccff,
+          transparent: true,
+          opacity: 0.3,
+          blending: AdditiveBlending,
+        });
+        const mesh = new Mesh(new BoxGeometry(CELL_SIZE * 0.88, 0.02, CELL_SIZE * 0.88), mat);
+        mesh.position.set(wx, 0.015, wz);
+        this.arenaGroup.add(mesh);
+        this.icePatchMeshes.set(key, mesh);
+      }
+
+      const mesh = this.icePatchMeshes.get(key)!;
+      (mesh.material as MeshBasicMaterial).opacity = 0.2 + Math.sin(time * 2 + patch.x + patch.y) * 0.1;
+    }
+
+    for (const [key, mesh] of this.icePatchMeshes) {
+      if (!activeKeys.has(key)) {
+        this.arenaGroup.remove(mesh);
+        this.icePatchMeshes.delete(key);
       }
     }
   }
@@ -1658,6 +1721,11 @@ export class GameSystem extends createSystem({}) {
     } else if (type === 'bomber') {
       this.playNoise(0.2, 0.3);
       this.playTone(150, 0.2, 0.2, 'sawtooth');
+    } else if (type === 'splitter') {
+      // Splitting sound: ascending tones
+      this.playTone(300, 0.08, 0.15, 'square');
+      setTimeout(() => this.playTone(450, 0.08, 0.15, 'square'), 40);
+      setTimeout(() => this.playTone(600, 0.1, 0.12, 'sine'), 80);
     } else {
       this.playTone(300, 0.1, 0.2, 'square');
       setTimeout(() => this.playTone(200, 0.15, 0.15, 'square'), 60);
@@ -1713,6 +1781,11 @@ export class GameSystem extends createSystem({}) {
     setTimeout(() => this.playTone(1200, 0.12, 0.08, 'sine'), 80);
   }
 
+  playIceSlideSound() {
+    this.playTone(1500, 0.06, 0.06, 'sine');
+    this.playTone(1800, 0.04, 0.04, 'sine');
+  }
+
   playAchievementSound() {
     const notes = [660, 880, 1100, 1320];
     notes.forEach((n, i) => {
@@ -1754,10 +1827,20 @@ export class GameSystem extends createSystem({}) {
       masterGain.gain.linearRampToValueAtTime(this.game.musicVolume * 0.12, ctx.currentTime + 2);
       masterGain.connect(ctx.destination);
 
+      // Theme-specific bass frequencies
+      const themeFreqs = [
+        { bass: 55, sub: 27.5, pad: 110, fifth: 82.5 }, // Neon Grid
+        { bass: 65, sub: 32.5, pad: 130, fifth: 97.5 }, // Cyber Punk
+        { bass: 49, sub: 24.5, pad: 98, fifth: 73.5 },  // Solar Flare
+        { bass: 44, sub: 22, pad: 88, fifth: 66 },       // Deep Space
+        { bass: 58, sub: 29, pad: 116, fifth: 87 },      // Toxic Glow
+      ];
+      const tf = themeFreqs[this.game.themeIndex % themeFreqs.length];
+
       // Bass drone
       const bass = ctx.createOscillator();
       bass.type = 'sine';
-      bass.frequency.setValueAtTime(55, ctx.currentTime);
+      bass.frequency.setValueAtTime(tf.bass, ctx.currentTime);
       const bassGain = ctx.createGain();
       bassGain.gain.setValueAtTime(0.4, ctx.currentTime);
       bass.connect(bassGain);
@@ -1767,7 +1850,7 @@ export class GameSystem extends createSystem({}) {
       // Sub-bass
       const sub = ctx.createOscillator();
       sub.type = 'sine';
-      sub.frequency.setValueAtTime(27.5, ctx.currentTime);
+      sub.frequency.setValueAtTime(tf.sub, ctx.currentTime);
       const subGain = ctx.createGain();
       subGain.gain.setValueAtTime(0.2, ctx.currentTime);
       sub.connect(subGain);
@@ -1777,7 +1860,7 @@ export class GameSystem extends createSystem({}) {
       // Pad with filter sweep
       const pad = ctx.createOscillator();
       pad.type = 'triangle';
-      pad.frequency.setValueAtTime(110, ctx.currentTime);
+      pad.frequency.setValueAtTime(tf.pad, ctx.currentTime);
       const filter = ctx.createBiquadFilter();
       filter.type = 'lowpass';
       filter.frequency.setValueAtTime(300, ctx.currentTime);
@@ -1802,7 +1885,7 @@ export class GameSystem extends createSystem({}) {
       // Fifth interval
       const fifth = ctx.createOscillator();
       fifth.type = 'sine';
-      fifth.frequency.setValueAtTime(82.5, ctx.currentTime);
+      fifth.frequency.setValueAtTime(tf.fifth, ctx.currentTime);
       const fifthGain = ctx.createGain();
       fifthGain.gain.setValueAtTime(0.1, ctx.currentTime);
       fifth.connect(fifthGain);

@@ -66,6 +66,10 @@ export class GameUISystem extends createSystem({
     required: [PanelUI, PanelDocument],
     where: [eq(PanelUI, 'config', './ui/achnotify.json')],
   },
+  stats: {
+    required: [PanelUI, PanelDocument],
+    where: [eq(PanelUI, 'config', './ui/stats.json')],
+  },
 }) {
   private game!: GameManager;
   private gameSystem!: GameSystem;
@@ -79,6 +83,7 @@ export class GameUISystem extends createSystem({
   private transitionEntity!: Entity;
   private howtoEntity!: Entity;
   private achNotifyEntity!: Entity;
+  private statsEntity!: Entity;
 
   private hudDoc: UIKitDocument | null = null;
   private menuDoc: UIKitDocument | null = null;
@@ -90,6 +95,7 @@ export class GameUISystem extends createSystem({
   private transitionDoc: UIKitDocument | null = null;
   private howtoDoc: UIKitDocument | null = null;
   private achNotifyDoc: UIKitDocument | null = null;
+  private statsDoc: UIKitDocument | null = null;
 
   private lastState: GameState = GameState.Menu;
   private lastCombo = 0;
@@ -103,7 +109,7 @@ export class GameUISystem extends createSystem({
   setPanelEntities(
     hud: Entity, menu: Entity, gameover: Entity, settings: Entity,
     pause: Entity, achievements: Entity, powerups: Entity, transition: Entity,
-    howto: Entity, achNotify: Entity
+    howto: Entity, achNotify: Entity, stats: Entity
   ) {
     this.hudEntity = hud;
     this.menuEntity = menu;
@@ -115,6 +121,7 @@ export class GameUISystem extends createSystem({
     this.transitionEntity = transition;
     this.howtoEntity = howto;
     this.achNotifyEntity = achNotify;
+    this.statsEntity = stats;
   }
 
   init() {
@@ -162,6 +169,11 @@ export class GameUISystem extends createSystem({
 
     this.queries.achNotify.subscribe('qualify', (entity) => {
       this.achNotifyDoc = getDoc(entity) || null;
+    });
+
+    this.queries.stats.subscribe('qualify', (entity) => {
+      this.statsDoc = getDoc(entity) || null;
+      if (this.statsDoc) this.wireStatsButtons();
     });
   }
 
@@ -214,6 +226,11 @@ export class GameUISystem extends createSystem({
 
     onClick(doc, 'btn-howto', () => {
       this.showPanel('howto');
+    });
+
+    onClick(doc, 'btn-stats', () => {
+      this.updateStatsDisplay();
+      this.showPanel('stats');
     });
   }
 
@@ -303,6 +320,45 @@ export class GameUISystem extends createSystem({
     });
   }
 
+  private wireStatsButtons() {
+    const doc = this.statsDoc!;
+    onClick(doc, 'btn-stats-back', () => {
+      this.showPanel('menu');
+    });
+  }
+
+  private updateStatsDisplay() {
+    if (!this.statsDoc) return;
+    const doc = this.statsDoc;
+    setText(doc, 'stat-games', `Games Played: ${this.game.totalGames}`);
+    setText(doc, 'stat-best', `Best Score: ${Math.floor(this.game.bestScore)}`);
+    setText(doc, 'stat-total', `Total Score: ${Math.floor(this.game.totalScore)}`);
+    setText(doc, 'stat-kills', `Enemies Killed: ${this.game.totalEnemiesKilled}`);
+    setText(doc, 'stat-blocks', `Blocks Destroyed: ${this.game.totalBlocksDestroyed}`);
+    setText(doc, 'stat-bombs', `Bombs Placed: ${this.game.totalBombsPlaced}`);
+    setText(doc, 'stat-powerups', `Power-Ups Collected: ${this.game.totalPowerUpsCollected}`);
+    setText(doc, 'stat-combos', `Best Combo: ${this.game.maxCombo}`);
+    setText(doc, 'stat-perfects', `Perfect Clears: ${this.game.perfectClears}`);
+    const survMin = Math.floor(this.game.longestSurvivalTime / 60);
+    const survSec = Math.floor(this.game.longestSurvivalTime % 60);
+    setText(doc, 'stat-survival', `Longest Survival: ${survMin}:${survSec.toString().padStart(2, '0')}`);
+    if (this.game.fastestLevelClear < 9999) {
+      const fastSec = Math.floor(this.game.fastestLevelClear);
+      setText(doc, 'stat-fastest', `Fastest Clear: ${fastSec}s`);
+    } else {
+      setText(doc, 'stat-fastest', 'Fastest Clear: --');
+    }
+    setText(doc, 'stat-achievements', `Achievements: ${this.game.achievements.length}/${this.game.totalAchievementCount}`);
+
+    // Per-mode scores
+    const modes = ['Classic', 'Timed', 'Survival', 'Puzzle', 'Endless'];
+    const keys = ['stat-classic', 'stat-timed', 'stat-survival-mode', 'stat-puzzle', 'stat-endless'];
+    for (let i = 0; i < modes.length; i++) {
+      const best = this.game.modeBestScores[modes[i]];
+      setText(doc, keys[i], `${modes[i]}: ${best ? Math.floor(best) : '--'}`);
+    }
+  }
+
   private updateSettingsDisplay() {
     if (!this.settingsDoc) return;
     const diffNames = ['Easy', 'Normal', 'Hard'];
@@ -348,7 +404,7 @@ export class GameUISystem extends createSystem({
     setText(doc, 'ach-stats', `Games: ${this.game.totalGames} -- Best: ${Math.floor(this.game.bestScore)} -- Total Kills: ${this.game.totalEnemiesKilled}`);
   }
 
-  private showPanel(state: 'menu' | 'playing' | 'gameover' | 'settings' | 'victory' | 'pause' | 'achievements' | 'transition' | 'howto') {
+  private showPanel(state: 'menu' | 'playing' | 'gameover' | 'settings' | 'victory' | 'pause' | 'achievements' | 'transition' | 'howto' | 'stats') {
     if (this.menuEntity) this.menuEntity.object3D!.visible = state === 'menu';
     if (this.gameoverEntity) this.gameoverEntity.object3D!.visible = state === 'gameover' || state === 'victory';
     if (this.settingsEntity) this.settingsEntity.object3D!.visible = state === 'settings';
@@ -358,6 +414,7 @@ export class GameUISystem extends createSystem({
     if (this.powerupsEntity) this.powerupsEntity.object3D!.visible = state === 'playing';
     if (this.transitionEntity) this.transitionEntity.object3D!.visible = state === 'transition';
     if (this.howtoEntity) this.howtoEntity.object3D!.visible = state === 'howto';
+    if (this.statsEntity) this.statsEntity.object3D!.visible = state === 'stats';
   }
 
   update(delta: number, time: number) {
