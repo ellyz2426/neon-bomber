@@ -272,7 +272,7 @@ export class GameSystem extends createSystem({}) {
     MAT.borderGlow = new MeshBasicMaterial({ color: 0x00ffff, transparent: true, opacity: 0.4, blending: AdditiveBlending });
     MAT.exitTile = new MeshBasicMaterial({ color: 0x00ff88, transparent: true, opacity: 0.8, blending: AdditiveBlending });
 
-    const puColors = [0x00ff00, 0xff8800, 0xffff00, 0x8888ff, 0xff00ff, 0x00ffff, 0xff6644, 0x4488ff, 0xff88ff];
+    const puColors = [0x00ff00, 0xff8800, 0xffff00, 0x8888ff, 0xff00ff, 0x00ffff, 0xff6644, 0x4488ff, 0xff88ff, 0xff4400];
     for (let i = 0; i < puColors.length; i++) {
       MAT.powerUp.set(i, new MeshBasicMaterial({ color: puColors[i], transparent: true, opacity: 0.9, blending: AdditiveBlending }));
     }
@@ -642,24 +642,50 @@ export class GameSystem extends createSystem({}) {
 
       if (!this.bombMeshes.has(key)) {
         const group = new Group();
-        const body = new Mesh(GEO.bomb!, MAT.bomb!);
-        body.position.y = 0.3;
-        group.add(body);
 
-        const glow = new Mesh(
-          new SphereGeometry(0.32, 8, 8),
-          MAT.bombGlow!.clone()
-        );
-        glow.position.y = 0.3;
-        group.add(glow);
+        if (bomb.isMine) {
+          // Mine: flat disc with glowing ring
+          const disc = new Mesh(
+            new CylinderGeometry(0.3, 0.3, 0.08, 16),
+            new MeshStandardMaterial({ color: 0xff4400, emissive: 0xff2200, emissiveIntensity: 0.6 })
+          );
+          disc.position.y = 0.04;
+          group.add(disc);
 
-        // Fuse spark
-        const spark = new Mesh(
-          new SphereGeometry(0.05, 6, 6),
-          new MeshBasicMaterial({ color: 0xffcc00, blending: AdditiveBlending })
-        );
-        spark.position.set(0, 0.55, 0);
-        group.add(spark);
+          const ring = new Mesh(
+            new CylinderGeometry(0.35, 0.35, 0.03, 16),
+            new MeshBasicMaterial({ color: 0xff8800, transparent: true, opacity: 0.6, blending: AdditiveBlending })
+          );
+          ring.position.y = 0.04;
+          group.add(ring);
+
+          // Warning dot on top
+          const dot = new Mesh(
+            new SphereGeometry(0.06, 6, 6),
+            new MeshBasicMaterial({ color: 0xff0000, blending: AdditiveBlending })
+          );
+          dot.position.y = 0.1;
+          group.add(dot);
+        } else {
+          const body = new Mesh(GEO.bomb!, MAT.bomb!);
+          body.position.y = 0.3;
+          group.add(body);
+
+          const glow = new Mesh(
+            new SphereGeometry(0.32, 8, 8),
+            MAT.bombGlow!.clone()
+          );
+          glow.position.y = 0.3;
+          group.add(glow);
+
+          // Fuse spark
+          const spark = new Mesh(
+            new SphereGeometry(0.05, 6, 6),
+            new MeshBasicMaterial({ color: 0xffcc00, blending: AdditiveBlending })
+          );
+          spark.position.set(0, 0.55, 0);
+          group.add(spark);
+        }
 
         group.position.set(wx, 0, wz);
         this.arenaGroup.add(group);
@@ -670,24 +696,39 @@ export class GameSystem extends createSystem({}) {
       // Update position each frame (handles sliding bombs)
       const [bwx, , bwz] = gridToWorld(bomb.slideVisualX, bomb.slideVisualY);
       group.position.set(bwx, 0, bwz);
-      const urgency = 1 - bomb.timer / 3;
-      const pulse = Math.sin(this.animTime * (5 + urgency * 15)) * 0.5 + 0.5;
-      const glow = group.children[1] as Mesh;
-      (glow.material as MeshBasicMaterial).opacity = 0.3 + pulse * 0.5;
-      group.children[0].scale.setScalar(0.9 + pulse * 0.15);
 
-      // Fuse spark flicker
-      const spark = group.children[2];
-      if (spark) {
-        spark.position.y = 0.55 + Math.sin(this.animTime * 20) * 0.02;
-        (spark as Mesh).material = new MeshBasicMaterial({
-          color: urgency > 0.7 ? 0xff0000 : 0xffcc00,
-          blending: AdditiveBlending,
-        });
-        spark.visible = Math.sin(this.animTime * 30) > -0.3;
+      if (bomb.isMine) {
+        // Mine pulsing glow
+        const pulse = Math.sin(this.animTime * 3) * 0.3 + 0.7;
+        if (group.children[1]) {
+          (group.children[1] as Mesh).material = new MeshBasicMaterial({
+            color: 0xff8800, transparent: true, opacity: pulse * 0.6, blending: AdditiveBlending
+          });
+        }
+        // Warning dot blink
+        if (group.children[2]) {
+          group.children[2].visible = Math.sin(this.animTime * 4) > 0;
+        }
+      } else {
+        const urgency = 1 - bomb.timer / 3;
+        const pulse = Math.sin(this.animTime * (5 + urgency * 15)) * 0.5 + 0.5;
+        const glow = group.children[1] as Mesh;
+        (glow.material as MeshBasicMaterial).opacity = 0.3 + pulse * 0.5;
+        group.children[0].scale.setScalar(0.9 + pulse * 0.15);
+
+        // Fuse spark flicker
+        const spark = group.children[2];
+        if (spark) {
+          spark.position.y = 0.55 + Math.sin(this.animTime * 20) * 0.02;
+          (spark as Mesh).material = new MeshBasicMaterial({
+            color: urgency > 0.7 ? 0xff0000 : 0xffcc00,
+            blending: AdditiveBlending,
+          });
+          spark.visible = Math.sin(this.animTime * 30) > -0.3;
+        }
+
+        MAT.bomb!.emissiveIntensity = 0.3 + urgency * 0.7;
       }
-
-      MAT.bomb!.emissiveIntensity = 0.3 + urgency * 0.7;
     }
 
     for (const [key, group] of this.bombMeshes) {

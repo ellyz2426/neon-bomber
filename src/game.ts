@@ -24,7 +24,30 @@ export enum PowerUpType {
   BombKick = 6,
   TimeFreeze = 7,
   Magnet = 8,
+  Mine = 9,
 }
+
+export enum LevelModifier {
+  None = 0,
+  PowerSurge = 1,    // Start with a random power-up
+  DenseArena = 2,    // 30% more soft blocks
+  SpeedZone = 3,     // All movement 40% faster
+  BombRain = 4,      // Random bomb drops every 12s
+  DoubleLoot = 5,    // Power-up drop rate 60% vs 30%
+  GlassCannon = 6,   // +2 blast range but 1 life
+  Volatile = 7,      // Bomb timers 1.5s instead of 3s
+}
+
+export const MODIFIER_NAMES: Record<LevelModifier, string> = {
+  [LevelModifier.None]: '',
+  [LevelModifier.PowerSurge]: 'Power Surge',
+  [LevelModifier.DenseArena]: 'Dense Arena',
+  [LevelModifier.SpeedZone]: 'Speed Zone',
+  [LevelModifier.BombRain]: 'Bomb Rain',
+  [LevelModifier.DoubleLoot]: 'Double Loot',
+  [LevelModifier.GlassCannon]: 'Glass Cannon',
+  [LevelModifier.Volatile]: 'Volatile',
+};
 
 export enum GameState {
   Menu = 0,
@@ -55,6 +78,7 @@ export interface BombData {
   slideSpeed: number;
   slideVisualX: number;
   slideVisualY: number;
+  isMine: boolean;
 }
 
 export interface ExplosionData {
@@ -483,6 +507,17 @@ export class GameManager {
   splittersKilled = 0;
   totalSplittersSpawned = 0;
 
+  // Level modifiers
+  activeModifier: LevelModifier = LevelModifier.None;
+  bombRainTimer = 0;
+  minesPlaced = 0;
+  totalMinesPlaced = 0;
+  totalMineKills = 0;
+  hasMine = false;
+  modifiersEncountered: LevelModifier[] = [];
+  volatileLevelsCleared = 0;
+  glassCannonKills = 0;
+
   // Screen flash
   screenFlash: { color: number; intensity: number; timer: number } | null = null;
 
@@ -525,6 +560,11 @@ export class GameManager {
         this.sfxVolume = save.sfxVolume ?? 0.7;
         this.modeBestScores = save.modeBestScores || {};
         this.splittersKilled = save.splittersKilled || 0;
+        this.totalMinesPlaced = save.totalMinesPlaced || 0;
+        this.totalMineKills = save.totalMineKills || 0;
+        this.modifiersEncountered = save.modifiersEncountered || [];
+        this.volatileLevelsCleared = save.volatileLevelsCleared || 0;
+        this.glassCannonKills = save.glassCannonKills || 0;
       }
     } catch { /* localStorage may not be available */ }
   }
@@ -549,6 +589,11 @@ export class GameManager {
         sfxVolume: this.sfxVolume,
         modeBestScores: this.modeBestScores,
         splittersKilled: this.splittersKilled,
+        totalMinesPlaced: this.totalMinesPlaced,
+        totalMineKills: this.totalMineKills,
+        modifiersEncountered: this.modifiersEncountered,
+        volatileLevelsCleared: this.volatileLevelsCleared,
+        glassCannonKills: this.glassCannonKills,
       };
       localStorage.setItem('neon-bomber-save', JSON.stringify(save));
     } catch { /* localStorage may not be available */ }
@@ -576,7 +621,8 @@ export class GameManager {
       [GRID_W - 2, GRID_H - 2], [GRID_W - 3, GRID_H - 2], [GRID_W - 2, GRID_H - 3], // Enemy spawn BR
     ];
 
-    const softBlockDensity = 0.4 + this.difficulty * 0.1;
+    const softBlockDensity = (0.4 + this.difficulty * 0.1) *
+      (this.activeModifier === LevelModifier.DenseArena ? 1.3 : 1.0);
 
     for (let y = 0; y < GRID_H; y++) {
       for (let x = 0; x < GRID_W; x++) {
@@ -947,6 +993,10 @@ export class GameManager {
     this.exitY = -1;
     this.exitRevealed = false;
     this.puzzleHint = '';
+    this.activeModifier = LevelModifier.None;
+    this.bombRainTimer = 0;
+    this.minesPlaced = 0;
+    this.hasMine = false;
     this.totalGames++;
 
     this.playerX = 1;
@@ -980,10 +1030,16 @@ export class GameManager {
   }
 
   nextLevel() {
+    // Track volatile clears before resetting modifier
+    if (this.activeModifier === LevelModifier.Volatile) {
+      this.volatileLevelsCleared++;
+    }
+
     this.level++;
     this.bombs = [];
     this.explosions = [];
     this.activeBombs = 0;
+    this.minesPlaced = 0;
     this.playerX = 1;
     this.playerY = 1;
     this.playerVisualX = 1;
@@ -992,6 +1048,9 @@ export class GameManager {
     this.exitX = -1;
     this.exitY = -1;
     this.exitRevealed = false;
+
+    // Roll modifier for new level
+    this.rollModifier();
 
     if (this.mode === GameMode.Puzzle) {
       // Keep existing power-up states but reset placement
@@ -1014,6 +1073,77 @@ export class GameManager {
 
     this.checkAchievements();
     this.state = GameState.Playing;
+  }
+
+  rollModifier() {
+    // No modifiers in puzzle mode, or below level 3
+    if (this.mode === GameMode.Puzzle || this.level < 3) {
+      this.activeModifier = LevelModifier.None;
+      this.bombRainTimer = 0;
+      return;
+    }
+
+    // 60% chance of a modifier from level 3+
+    if (Math.random() > 0.6) {
+      this.activeModifier = LevelModifier.None;
+      this.bombRainTimer = 0;
+      return;
+    }
+
+    const mods = [
+      LevelModifier.PowerSurge,
+      LevelModifier.DenseArena,
+      LevelModifier.SpeedZone,
+      LevelModifier.BombRain,
+      LevelModifier.DoubleLoot,
+      LevelModifier.GlassCannon,
+      LevelModifier.Volatile,
+    ];
+    this.activeModifier = mods[Math.floor(Math.random() * mods.length)];
+    this.bombRainTimer = 12;
+
+    // Track encountered modifiers
+    if (!this.modifiersEncountered.includes(this.activeModifier)) {
+      this.modifiersEncountered.push(this.activeModifier);
+    }
+
+    this.applyModifier();
+  }
+
+  applyModifier() {
+    switch (this.activeModifier) {
+      case LevelModifier.PowerSurge: {
+        // Grant a random power-up at level start
+        const types = [PowerUpType.ExtraBomb, PowerUpType.BlastRange, PowerUpType.Speed,
+          PowerUpType.Shield, PowerUpType.BombKick, PowerUpType.TimeFreeze, PowerUpType.Mine];
+        const chosen = types[Math.floor(Math.random() * types.length)];
+        // Place it near spawn for instant pickup
+        this.powerUps.push({ x: 1, y: 2, type: chosen, collected: false });
+        break;
+      }
+      case LevelModifier.SpeedZone:
+        this.speed *= 1.4;
+        for (const enemy of this.enemies) {
+          enemy.moveSpeed *= 0.7; // faster = lower timer
+        }
+        break;
+      case LevelModifier.GlassCannon:
+        this.blastRange += 2;
+        this.lives = 1;
+        break;
+      case LevelModifier.Volatile:
+        // Bomb timers handled in placeBomb
+        break;
+      case LevelModifier.BombRain:
+        this.bombRainTimer = 12;
+        break;
+      case LevelModifier.DoubleLoot:
+        // Handled in power-up drop logic
+        break;
+      case LevelModifier.DenseArena:
+        // Already handled in initGrid via modifier check
+        break;
+    }
   }
 
   canMove(x: number, y: number): boolean {
@@ -1105,13 +1235,18 @@ export class GameManager {
 
   placeBomb(): boolean {
     if (this.state !== GameState.Playing) return false;
-    if (this.activeBombs >= this.maxBombs) return false;
     if (this.bombs.some(b => b.x === this.playerX && b.y === this.playerY)) return false;
+
+    const isMine = this.hasMine;
+    if (!isMine && this.activeBombs >= this.maxBombs) return false;
+
+    const bombTimer = isMine ? 9999 :
+      (this.activeModifier === LevelModifier.Volatile ? 1.5 : 3.0);
 
     this.bombs.push({
       x: this.playerX,
       y: this.playerY,
-      timer: 3.0,
+      timer: bombTimer,
       range: this.blastRange,
       owner: 'player',
       remote: this.hasRemoteDetonate,
@@ -1120,9 +1255,16 @@ export class GameManager {
       slideSpeed: 0,
       slideVisualX: this.playerX,
       slideVisualY: this.playerY,
+      isMine,
     });
     this.grid[this.playerY][this.playerX] = CellType.Bomb;
-    this.activeBombs++;
+    if (isMine) {
+      this.hasMine = false;
+      this.minesPlaced++;
+      this.totalMinesPlaced++;
+    } else {
+      this.activeBombs++;
+    }
     this.totalBombsPlaced++;
     return true;
   }
@@ -1330,7 +1472,7 @@ export class GameManager {
         result.exploded.push(bomb);
         this.explodeBomb(bomb, result);
         this.bombs.splice(i, 1);
-        if (bomb.owner === 'player') this.activeBombs--;
+        if (bomb.owner === 'player' && !bomb.isMine) this.activeBombs--;
       }
     }
 
@@ -1348,6 +1490,53 @@ export class GameManager {
 
     // Update enemies
     this.updateEnemies(delta, result);
+
+    // Mine trigger: check if any enemy is standing on a mine
+    for (const bomb of this.bombs) {
+      if (!bomb.isMine) continue;
+      for (const enemy of this.enemies) {
+        if (!enemy.alive) continue;
+        if (enemy.x === bomb.x && enemy.y === bomb.y) {
+          bomb.timer = 0; // Detonate immediately
+          break;
+        }
+      }
+    }
+
+    // Bomb rain modifier: drop a random bomb every 12 seconds
+    if (this.activeModifier === LevelModifier.BombRain) {
+      this.bombRainTimer -= delta;
+      if (this.bombRainTimer <= 0) {
+        this.bombRainTimer = 12;
+        // Find a random empty cell
+        let attempts = 0;
+        let rx: number, ry: number;
+        do {
+          rx = 1 + Math.floor(Math.random() * (GRID_W - 2));
+          ry = 1 + Math.floor(Math.random() * (GRID_H - 2));
+          attempts++;
+        } while (attempts < 30 && (
+          this.grid[ry][rx] !== CellType.Empty ||
+          (rx <= 2 && ry <= 2) // not on player spawn
+        ));
+        if (attempts < 30) {
+          this.bombs.push({
+            x: rx, y: ry,
+            timer: 2.0,
+            range: 2,
+            owner: 'enemy',
+            remote: false,
+            sliding: false,
+            slideDir: [0, 0],
+            slideSpeed: 0,
+            slideVisualX: rx,
+            slideVisualY: ry,
+            isMine: false,
+          });
+          this.grid[ry][rx] = CellType.Bomb;
+        }
+      }
+    }
 
     // Update lasers
     this.updateLasers(delta, result);
@@ -1472,11 +1661,12 @@ export class GameManager {
           }
 
           // Chance to drop power-up
-          if (Math.random() < 0.3) {
+          const dropRate = this.activeModifier === LevelModifier.DoubleLoot ? 0.6 : 0.3;
+          if (Math.random() < dropRate) {
             const types = [PowerUpType.ExtraBomb, PowerUpType.BlastRange, PowerUpType.Speed,
               PowerUpType.PassThrough, PowerUpType.RemoteDetonate, PowerUpType.Shield, PowerUpType.BombKick,
-              PowerUpType.TimeFreeze, PowerUpType.Magnet];
-            const weights = [3, 3, 2, 1, 1, 1, 1, 1, 1];
+              PowerUpType.TimeFreeze, PowerUpType.Magnet, PowerUpType.Mine];
+            const weights = [3, 3, 2, 1, 1, 1, 1, 1, 1, 1];
             const total = weights.reduce((a, b) => a + b, 0);
             let rnd = Math.random() * total;
             let pType = types[0];
@@ -1542,6 +1732,8 @@ export class GameManager {
           this.totalEnemiesKilled++;
           if (enemy.isBoss) this.bossesKilled++;
           if (enemy.type === 'splitter') this.splittersKilled++;
+          if (bomb.isMine) this.totalMineKills++;
+          if (this.activeModifier === LevelModifier.GlassCannon) this.glassCannonKills++;
           let baseScore = enemy.type === 'bomber' ? 300 :
             enemy.type === 'chase' ? 200 :
             enemy.type === 'teleporter' ? 400 :
@@ -2051,6 +2243,7 @@ export class GameManager {
       slideSpeed: 0,
       slideVisualX: enemy.x,
       slideVisualY: enemy.y,
+      isMine: false,
     });
     this.grid[enemy.y][enemy.x] = CellType.Bomb;
   }
@@ -2096,6 +2289,10 @@ export class GameManager {
       case PowerUpType.Magnet:
         this.hasMagnet = true;
         this.magnetTimer = 20;
+        break;
+      case PowerUpType.Mine:
+        this.hasMine = true;
+        this.screenFlash = { color: 0xff4400, intensity: 0.3, timer: 0.2 };
         break;
     }
   }
@@ -2238,6 +2435,17 @@ export class GameManager {
       { id: 'blocks_5000', name: 'Armageddon', cond: () => this.totalBlocksDestroyed >= 5000 },
       { id: 'powerups_50', name: 'Hoarder', cond: () => this.totalPowerUpsCollected >= 50 },
       { id: 'endless_w30', name: 'Tidal Wave', cond: () => this.mode === GameMode.Endless && this.endlessWave >= 30 },
+      // Round 6: Mine, modifier, milestone achievements
+      { id: 'mine_place', name: 'Minelayer', cond: () => this.totalMinesPlaced >= 1 },
+      { id: 'mine_kill_3', name: 'Trap Master', cond: () => this.totalMineKills >= 3 },
+      { id: 'mine_kill_10', name: 'Demolitionist', cond: () => this.totalMineKills >= 10 },
+      { id: 'modifier_first', name: 'Modified', cond: () => this.modifiersEncountered.length >= 1 },
+      { id: 'modifier_all', name: 'Adapt and Overcome', cond: () => this.modifiersEncountered.length >= 7 },
+      { id: 'glass_cannon_5', name: 'Living Dangerously', cond: () => this.glassCannonKills >= 5 },
+      { id: 'volatile_clear', name: 'Quick Fuse', cond: () => this.volatileLevelsCleared >= 3 },
+      { id: 'kill_1000', name: 'Genocide II', cond: () => this.totalEnemiesKilled >= 1000 },
+      { id: 'total_5m', name: 'Pentamillionaire', cond: () => this.totalScore >= 5000000 },
+      { id: 'games_50', name: 'Veteran Player', cond: () => this.totalGames >= 50 },
     ];
 
     for (const check of checks) {
@@ -2284,11 +2492,15 @@ export class GameManager {
       level_30: 'Ascendant', combo_25: 'Combo Deity', survive_20min: 'Marathon Runner',
       total_2m: 'Double Millionaire', blocks_5000: 'Armageddon', powerups_50: 'Hoarder',
       endless_w30: 'Tidal Wave',
+      mine_place: 'Minelayer', mine_kill_3: 'Trap Master', mine_kill_10: 'Demolitionist',
+      modifier_first: 'Modified', modifier_all: 'Adapt and Overcome',
+      glass_cannon_5: 'Living Dangerously', volatile_clear: 'Quick Fuse',
+      kill_1000: 'Genocide II', total_5m: 'Pentamillionaire', games_50: 'Veteran Player',
     };
     return names[id] || id;
   }
 
-  get totalAchievementCount() { return 90; }
+  get totalAchievementCount() { return 100; }
 
   getEnemyCountForNextLevel(): number {
     return 2 + (this.level + 1) + this.difficulty;

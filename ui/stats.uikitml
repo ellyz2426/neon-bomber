@@ -1,4 +1,4 @@
-<panel width="420" height="520" backgroundColor="#0a0a1a" borderRadius="8" padding="12">
+<panel width="420" height="560" backgroundColor="#0a0a1a" borderRadius="8" padding="12">
   <text id="stats-title" fontSize="22" color="#00ffcc" fontWeight="bold">STATISTICS</text>
 
   <panel width="396" height="1" backgroundColor="#224466" marginTop="6" marginBottom="6"></panel>
@@ -10,11 +10,12 @@
   <text id="stat-blocks" fontSize="13" color="#ff8800">Blocks Destroyed: 0</text>
   <text id="stat-bombs" fontSize="13" color="#ff4444">Bombs Placed: 0</text>
   <text id="stat-powerups" fontSize="13" color="#00ff88">Power-Ups Collected: 0</text>
+  <text id="stat-mines" fontSize="13" color="#ff4400">Mines Placed: 0 -- Mine Kills: 0</text>
   <text id="stat-combos" fontSize="13" color="#ffff00">Best Combo: 0</text>
   <text id="stat-perfects" fontSize="13" color="#00ffff">Perfect Clears: 0</text>
   <text id="stat-survival" fontSize="13" color="#8888ff">Longest Survival: 0:00</text>
   <text id="stat-fastest" fontSize="13" color="#ff88ff">Fastest Clear: --</text>
-  <text id="stat-achievements" fontSize="13" color="#ffcc00">Achievements: 0/90</text>
+  <text id="stat-achievements" fontSize="13" color="#ffcc00">Achievements: 0/100</text>
 
   <panel width="396" height="1" backgroundColor="#224466" marginTop="6" marginBottom="6"></panel>
 

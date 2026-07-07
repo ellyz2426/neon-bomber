@@ -11,5 +11,6 @@
 >
   <text name="transition-text" fontSize="32" color="#00ffff" fontWeight="bold">LEVEL 2</text>
   <text name="transition-bonus" fontSize="16" color="#ffcc00">+1000 Level Bonus</text>
+  <text name="transition-modifier" fontSize="14" color="#ff8800" fontWeight="bold"></text>
   <text name="transition-enemies" fontSize="12" color="#ff4488">5 enemies incoming</text>
 </container>

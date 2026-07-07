@@ -349,6 +349,7 @@ export class GameUISystem extends createSystem({
       setText(doc, 'stat-fastest', 'Fastest Clear: --');
     }
     setText(doc, 'stat-achievements', `Achievements: ${this.game.achievements.length}/${this.game.totalAchievementCount}`);
+    setText(doc, 'stat-mines', `Mines Placed: ${this.game.totalMinesPlaced} -- Mine Kills: ${this.game.totalMineKills}`);
 
     // Per-mode scores
     const modes = ['Classic', 'Timed', 'Survival', 'Puzzle', 'Endless'];
@@ -553,6 +554,24 @@ export class GameUISystem extends createSystem({
     } else {
       setText(this.hudDoc, 'boss-hp', '');
     }
+
+    // Modifier indicator
+    if (this.game.activeModifier !== 0) {
+      const modNames: Record<number, string> = {
+        1: 'POWER SURGE', 2: 'DENSE ARENA', 3: 'SPEED ZONE',
+        4: 'BOMB RAIN', 5: 'DOUBLE LOOT', 6: 'GLASS CANNON', 7: 'VOLATILE',
+      };
+      setText(this.hudDoc, 'modifier', modNames[this.game.activeModifier] || '');
+    } else {
+      setText(this.hudDoc, 'modifier', '');
+    }
+
+    // Mine indicator
+    if (this.game.hasMine) {
+      setText(this.hudDoc, 'mine-indicator', 'MINE READY');
+    } else {
+      setText(this.hudDoc, 'mine-indicator', '');
+    }
   }
 
   private updatePowerUpsHUD() {
@@ -584,6 +603,17 @@ export class GameUISystem extends createSystem({
     setText(this.transitionDoc, 'transition-bonus', `+${(this.game.level + 1) * 500} Level Bonus`);
     const enemyCount = this.game.getEnemyCountForNextLevel();
     setText(this.transitionDoc, 'transition-enemies', `${enemyCount} enemies incoming`);
+
+    // Show modifier for upcoming level (already rolled in nextLevel)
+    if (this.game.activeModifier !== 0) {
+      const modNames: Record<number, string> = {
+        1: 'POWER SURGE', 2: 'DENSE ARENA', 3: 'SPEED ZONE',
+        4: 'BOMB RAIN', 5: 'DOUBLE LOOT', 6: 'GLASS CANNON', 7: 'VOLATILE',
+      };
+      setText(this.transitionDoc, 'transition-modifier', `Modifier: ${modNames[this.game.activeModifier] || ''}`);
+    } else {
+      setText(this.transitionDoc, 'transition-modifier', '');
+    }
   }
 
   private updateGameoverDisplay(victory: boolean) {

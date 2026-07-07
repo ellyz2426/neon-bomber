@@ -7,7 +7,7 @@
   "pages_url": "https://ellyz2426.github.io/neon-bomber/",
   "build_start_utc": "2026-07-07T07:00:00Z",
   "target_hours": 6,
-  "total_build_minutes": 115,
+  "total_build_minutes": 140,
   "status": "building",
   "rounds": [
     {
@@ -48,6 +48,16 @@
       "features": "BFS pathfinding for chase/boss enemies, Endless mode (5th game mode - infinite escalating waves with boss every 5 waves), 2 new power-ups (Time Freeze slows enemies to 20%%, Magnet auto-collects nearby power-ups), screen flash effects on player hit/wave clear, dynamic time freeze visual overlay, career stats expanded, 80 achievements (10 new: Frozen in Time/Magnetic Personality/Wave 5/Wave Rider/Tsunami/Jack of All Trades/Multi Kill/Boss Hunter/Millionaire/Extermination)",
       "loc": 4716,
       "panels": 10,
+      "deployed": true
+    },
+    {
+      "round": 5,
+      "start_utc": "2026-07-07T13:58:00Z",
+      "end_utc": "2026-07-07T14:23:00Z",
+      "duration_minutes": 25,
+      "features": "Splitter enemy type (splits into 2 fast wanderers on death, 2 HP, from level 7+), ice patches (slide mechanic from level 6+, translucent blue pulsing tiles), statistics panel (full career stats, per-mode best scores), theme-responsive ambient music (5 bass tuning profiles), per-mode best scores (localStorage), 90 achievements (10 new: splitter_kill, splitter_5, ice_slide, level_30, combo_25, survive_20min, total_2m, blocks_5000, powerups_50, endless_w30), 11 PanelUI panels (stats added)",
+      "loc": 5014,
+      "panels": 11,
       "deployed": true
     }
   ],
@@ -105,7 +115,14 @@
     "Screen flash effects (red on damage, cyan on wave clear)",
     "Time freeze visual overlay",
     "80 achievements (10 new including wave/endless achievements)",
-    "10 PanelUI panels (added freeze+magnet indicators)"
+    "10 PanelUI panels (added freeze+magnet indicators)",
+    "Splitter enemy type (splits into 2 fast wanderers, 2 HP, level 7+)",
+    "Ice patches (slide mechanic, level 6+, translucent blue pulsing tiles)",
+    "Statistics panel (career stats, per-mode best scores)",
+    "Theme-responsive ambient music (5 bass tuning profiles)",
+    "Per-mode best scores (localStorage persistence)",
+    "90 achievements (10 new including splitter/ice/endurance)",
+    "11 PanelUI panels (stats panel added)"
   ],
-  "last_updated_utc": "2026-07-07T13:58:11Z"
+  "last_updated_utc": "2026-07-07T14:16:02Z"
 }

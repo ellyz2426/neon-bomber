@@ -23,6 +23,8 @@
   <text name="howto-tip2" fontSize="11" color="#ffcc00">Chain explosions for combo bonus</text>
   <text name="howto-tip3" fontSize="11" color="#ff8844">Watch for laser warnings in later levels!</text>
   <text name="howto-tip4" fontSize="11" color="#8888ff">Conveyor belts push you - use them wisely</text>
+  <text name="howto-tip5" fontSize="11" color="#ff4400">Mines detonate when enemies walk over them</text>
+  <text name="howto-tip6" fontSize="11" color="#ff8800">Levels 3+ may have random modifiers!</text>
 
   <container
     name="btn-howto-back"
