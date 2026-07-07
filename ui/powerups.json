@@ -1,0 +1,241 @@
+{
+  "element": {
+    "sourceTag": "container",
+    "type": "custom",
+    "children": [
+      {
+        "sourceTag": "text",
+        "type": "custom",
+        "children": [
+          "B:1"
+        ],
+        "properties": {
+          "name": "pu-bombs",
+          "fontsize": "10",
+          "color": "#00ff00"
+        },
+        "dataUid": "uid-2"
+      },
+      {
+        "sourceTag": "text",
+        "type": "custom",
+        "children": [
+          "R:2"
+        ],
+        "properties": {
+          "name": "pu-range",
+          "fontsize": "10",
+          "color": "#ff8800"
+        },
+        "dataUid": "uid-3"
+      },
+      {
+        "sourceTag": "text",
+        "type": "custom",
+        "children": [
+          "S:4"
+        ],
+        "properties": {
+          "name": "pu-speed",
+          "fontsize": "10",
+          "color": "#ffff00"
+        },
+        "dataUid": "uid-4"
+      },
+      {
+        "sourceTag": "text",
+        "type": "custom",
+        "children": [
+          "PT"
+        ],
+        "properties": {
+          "name": "pu-pass",
+          "fontsize": "10",
+          "color": "#555555"
+        },
+        "dataUid": "uid-5"
+      },
+      {
+        "sourceTag": "text",
+        "type": "custom",
+        "children": [
+          "RD"
+        ],
+        "properties": {
+          "name": "pu-remote",
+          "fontsize": "10",
+          "color": "#555555"
+        },
+        "dataUid": "uid-6"
+      },
+      {
+        "sourceTag": "text",
+        "type": "custom",
+        "children": [
+          "SH"
+        ],
+        "properties": {
+          "name": "pu-shield",
+          "fontsize": "10",
+          "color": "#555555"
+        },
+        "dataUid": "uid-7"
+      },
+      {
+        "sourceTag": "text",
+        "type": "custom",
+        "children": [
+          "KK"
+        ],
+        "properties": {
+          "name": "pu-kick",
+          "fontsize": "10",
+          "color": "#555555"
+        },
+        "dataUid": "uid-8"
+      },
+      {
+        "sourceTag": "text",
+        "type": "custom",
+        "children": [
+          "FZ"
+        ],
+        "properties": {
+          "name": "pu-freeze",
+          "fontsize": "10",
+          "color": "#555555"
+        },
+        "dataUid": "uid-9"
+      },
+      {
+        "sourceTag": "text",
+        "type": "custom",
+        "children": [
+          "MG"
+        ],
+        "properties": {
+          "name": "pu-magnet",
+          "fontsize": "10",
+          "color": "#555555"
+        },
+        "dataUid": "uid-10"
+      }
+    ],
+    "properties": {
+      "name": "powerups-root",
+      "flexdirection": "row",
+      "alignitems": "center",
+      "justifycontent": "center",
+      "width": "100%",
+      "height": "100%",
+      "padding": "4",
+      "gap": "5",
+      "backgroundcolor": "#00000066",
+      "borderradius": "6"
+    },
+    "dataUid": "uid-1"
+  },
+  "classes": {},
+  "ranges": {
+    "uid-1": {
+      "start": {
+        "line": 0,
+        "column": 0
+      },
+      "end": {
+        "line": 21,
+        "column": 12
+      }
+    },
+    "uid-2": {
+      "start": {
+        "line": 12,
+        "column": 2
+      },
+      "end": {
+        "line": 12,
+        "column": 64
+      }
+    },
+    "uid-3": {
+      "start": {
+        "line": 13,
+        "column": 2
+      },
+      "end": {
+        "line": 13,
+        "column": 64
+      }
+    },
+    "uid-4": {
+      "start": {
+        "line": 14,
+        "column": 2
+      },
+      "end": {
+        "line": 14,
+        "column": 64
+      }
+    },
+    "uid-5": {
+      "start": {
+        "line": 15,
+        "column": 2
+      },
+      "end": {
+        "line": 15,
+        "column": 62
+      }
+    },
+    "uid-6": {
+      "start": {
+        "line": 16,
+        "column": 2
+      },
+      "end": {
+        "line": 16,
+        "column": 64
+      }
+    },
+    "uid-7": {
+      "start": {
+        "line": 17,
+        "column": 2
+      },
+      "end": {
+        "line": 17,
+        "column": 64
+      }
+    },
+    "uid-8": {
+      "start": {
+        "line": 18,
+        "column": 2
+      },
+      "end": {
+        "line": 18,
+        "column": 62
+      }
+    },
+    "uid-9": {
+      "start": {
+        "line": 19,
+        "column": 2
+      },
+      "end": {
+        "line": 19,
+        "column": 64
+      }
+    },
+    "uid-10": {
+      "start": {
+        "line": 20,
+        "column": 2
+      },
+      "end": {
+        "line": 20,
+        "column": 64
+      }
+    }
+  }
+}

@@ -1,0 +1,518 @@
+{
+  "element": {
+    "sourceTag": "container",
+    "type": "custom",
+    "children": [
+      {
+        "sourceTag": "text",
+        "type": "custom",
+        "children": [
+          "NEON BOMBER"
+        ],
+        "properties": {
+          "fontsize": "32",
+          "color": "#00ffff",
+          "fontweight": "bold"
+        },
+        "dataUid": "uid-2"
+      },
+      {
+        "sourceTag": "text",
+        "type": "custom",
+        "children": [
+          "Grid Arena Demolition"
+        ],
+        "properties": {
+          "fontsize": "14",
+          "color": "#4488aa"
+        },
+        "dataUid": "uid-3"
+      },
+      {
+        "sourceTag": "container",
+        "type": "custom",
+        "children": [
+          {
+            "sourceTag": "text",
+            "type": "custom",
+            "children": [
+              "CLASSIC MODE"
+            ],
+            "properties": {
+              "name": "btn-classic",
+              "fontsize": "16",
+              "color": "#00ff88",
+              "fontweight": "bold",
+              "backgroundcolor": "#003322",
+              "padding": "8",
+              "borderradius": "6",
+              "width": "100%",
+              "textalign": "center",
+              "cursor": "pointer",
+              "hoverBackgroundcolor": "#005533"
+            },
+            "dataUid": "uid-5"
+          },
+          {
+            "sourceTag": "text",
+            "type": "custom",
+            "children": [
+              "TIMED MODE"
+            ],
+            "properties": {
+              "name": "btn-timed",
+              "fontsize": "16",
+              "color": "#ffcc00",
+              "fontweight": "bold",
+              "backgroundcolor": "#332200",
+              "padding": "8",
+              "borderradius": "6",
+              "width": "100%",
+              "textalign": "center",
+              "cursor": "pointer",
+              "hoverBackgroundcolor": "#554400"
+            },
+            "dataUid": "uid-6"
+          },
+          {
+            "sourceTag": "text",
+            "type": "custom",
+            "children": [
+              "SURVIVAL MODE"
+            ],
+            "properties": {
+              "name": "btn-survival",
+              "fontsize": "16",
+              "color": "#ff4488",
+              "fontweight": "bold",
+              "backgroundcolor": "#330022",
+              "padding": "8",
+              "borderradius": "6",
+              "width": "100%",
+              "textalign": "center",
+              "cursor": "pointer",
+              "hoverBackgroundcolor": "#550033"
+            },
+            "dataUid": "uid-7"
+          },
+          {
+            "sourceTag": "text",
+            "type": "custom",
+            "children": [
+              "PUZZLE MODE"
+            ],
+            "properties": {
+              "name": "btn-puzzle",
+              "fontsize": "16",
+              "color": "#8888ff",
+              "fontweight": "bold",
+              "backgroundcolor": "#110033",
+              "padding": "8",
+              "borderradius": "6",
+              "width": "100%",
+              "textalign": "center",
+              "cursor": "pointer",
+              "hoverBackgroundcolor": "#220066"
+            },
+            "dataUid": "uid-8"
+          },
+          {
+            "sourceTag": "text",
+            "type": "custom",
+            "children": [
+              "ENDLESS MODE"
+            ],
+            "properties": {
+              "name": "btn-endless",
+              "fontsize": "16",
+              "color": "#ff8844",
+              "fontweight": "bold",
+              "backgroundcolor": "#331100",
+              "padding": "8",
+              "borderradius": "6",
+              "width": "100%",
+              "textalign": "center",
+              "cursor": "pointer",
+              "hoverBackgroundcolor": "#552200"
+            },
+            "dataUid": "uid-9"
+          }
+        ],
+        "properties": {
+          "flexdirection": "column",
+          "gap": "5",
+          "alignitems": "center",
+          "margintop": "8",
+          "width": "80%"
+        },
+        "dataUid": "uid-4"
+      },
+      {
+        "sourceTag": "container",
+        "type": "custom",
+        "children": [
+          {
+            "sourceTag": "text",
+            "type": "custom",
+            "children": [
+              "SETTINGS"
+            ],
+            "properties": {
+              "name": "btn-settings",
+              "fontsize": "12",
+              "color": "#8888aa",
+              "backgroundcolor": "#111122",
+              "padding": "6",
+              "borderradius": "6",
+              "textalign": "center",
+              "cursor": "pointer",
+              "hoverBackgroundcolor": "#222244"
+            },
+            "dataUid": "uid-11"
+          },
+          {
+            "sourceTag": "text",
+            "type": "custom",
+            "children": [
+              "TROPHIES"
+            ],
+            "properties": {
+              "name": "btn-menu-ach",
+              "fontsize": "12",
+              "color": "#ffcc00",
+              "backgroundcolor": "#221100",
+              "padding": "6",
+              "borderradius": "6",
+              "textalign": "center",
+              "cursor": "pointer",
+              "hoverBackgroundcolor": "#442200"
+            },
+            "dataUid": "uid-12"
+          },
+          {
+            "sourceTag": "text",
+            "type": "custom",
+            "children": [
+              "HOW TO"
+            ],
+            "properties": {
+              "name": "btn-howto",
+              "fontsize": "12",
+              "color": "#00ccff",
+              "backgroundcolor": "#001122",
+              "padding": "6",
+              "borderradius": "6",
+              "textalign": "center",
+              "cursor": "pointer",
+              "hoverBackgroundcolor": "#002244"
+            },
+            "dataUid": "uid-13"
+          },
+          {
+            "sourceTag": "text",
+            "type": "custom",
+            "children": [
+              "STATS"
+            ],
+            "properties": {
+              "name": "btn-stats",
+              "fontsize": "12",
+              "color": "#88ff88",
+              "backgroundcolor": "#002211",
+              "padding": "6",
+              "borderradius": "6",
+              "textalign": "center",
+              "cursor": "pointer",
+              "hoverBackgroundcolor": "#003322"
+            },
+            "dataUid": "uid-14"
+          },
+          {
+            "sourceTag": "text",
+            "type": "custom",
+            "children": [
+              "RECORDS"
+            ],
+            "properties": {
+              "name": "btn-leaderboard",
+              "fontsize": "12",
+              "color": "#ffcc00",
+              "backgroundcolor": "#222200",
+              "padding": "6",
+              "borderradius": "6",
+              "textalign": "center",
+              "cursor": "pointer",
+              "hoverBackgroundcolor": "#444400"
+            },
+            "dataUid": "uid-15"
+          }
+        ],
+        "properties": {
+          "flexdirection": "row",
+          "gap": "4",
+          "alignitems": "center",
+          "margintop": "6",
+          "width": "80%",
+          "flexwrap": "wrap",
+          "justifycontent": "center"
+        },
+        "dataUid": "uid-10"
+      },
+      {
+        "sourceTag": "container",
+        "type": "custom",
+        "children": [
+          {
+            "sourceTag": "text",
+            "type": "custom",
+            "children": [
+              "WASD/Arrows: Move -- Space: Bomb"
+            ],
+            "properties": {
+              "fontsize": "10",
+              "color": "#446688"
+            },
+            "dataUid": "uid-17"
+          },
+          {
+            "sourceTag": "text",
+            "type": "custom",
+            "children": [
+              "R: Remote Detonate -- Esc: Pause"
+            ],
+            "properties": {
+              "fontsize": "10",
+              "color": "#446688"
+            },
+            "dataUid": "uid-18"
+          },
+          {
+            "sourceTag": "text",
+            "type": "custom",
+            "children": [
+              "VR: Left Stick Move -- Trigger/A: Bomb"
+            ],
+            "properties": {
+              "fontsize": "10",
+              "color": "#446688"
+            },
+            "dataUid": "uid-19"
+          }
+        ],
+        "properties": {
+          "flexdirection": "column",
+          "gap": "3",
+          "alignitems": "center",
+          "margintop": "4"
+        },
+        "dataUid": "uid-16"
+      }
+    ],
+    "properties": {
+      "name": "menu-root",
+      "flexdirection": "column",
+      "alignitems": "center",
+      "justifycontent": "flex-start",
+      "width": "100%",
+      "height": "100%",
+      "padding": "20",
+      "gap": "8",
+      "backgroundcolor": "#000811ee",
+      "borderradius": "12"
+    },
+    "dataUid": "uid-1"
+  },
+  "classes": {},
+  "ranges": {
+    "uid-1": {
+      "start": {
+        "line": 0,
+        "column": 0
+      },
+      "end": {
+        "line": 154,
+        "column": 12
+      }
+    },
+    "uid-2": {
+      "start": {
+        "line": 12,
+        "column": 2
+      },
+      "end": {
+        "line": 12,
+        "column": 74
+      }
+    },
+    "uid-3": {
+      "start": {
+        "line": 13,
+        "column": 2
+      },
+      "end": {
+        "line": 13,
+        "column": 66
+      }
+    },
+    "uid-4": {
+      "start": {
+        "line": 15,
+        "column": 2
+      },
+      "end": {
+        "line": 85,
+        "column": 14
+      }
+    },
+    "uid-5": {
+      "start": {
+        "line": 16,
+        "column": 4
+      },
+      "end": {
+        "line": 28,
+        "column": 24
+      }
+    },
+    "uid-6": {
+      "start": {
+        "line": 30,
+        "column": 4
+      },
+      "end": {
+        "line": 42,
+        "column": 22
+      }
+    },
+    "uid-7": {
+      "start": {
+        "line": 44,
+        "column": 4
+      },
+      "end": {
+        "line": 56,
+        "column": 25
+      }
+    },
+    "uid-8": {
+      "start": {
+        "line": 58,
+        "column": 4
+      },
+      "end": {
+        "line": 70,
+        "column": 23
+      }
+    },
+    "uid-9": {
+      "start": {
+        "line": 72,
+        "column": 4
+      },
+      "end": {
+        "line": 84,
+        "column": 24
+      }
+    },
+    "uid-10": {
+      "start": {
+        "line": 87,
+        "column": 2
+      },
+      "end": {
+        "line": 147,
+        "column": 14
+      }
+    },
+    "uid-11": {
+      "start": {
+        "line": 88,
+        "column": 4
+      },
+      "end": {
+        "line": 98,
+        "column": 20
+      }
+    },
+    "uid-12": {
+      "start": {
+        "line": 100,
+        "column": 4
+      },
+      "end": {
+        "line": 110,
+        "column": 20
+      }
+    },
+    "uid-13": {
+      "start": {
+        "line": 112,
+        "column": 4
+      },
+      "end": {
+        "line": 122,
+        "column": 18
+      }
+    },
+    "uid-14": {
+      "start": {
+        "line": 124,
+        "column": 4
+      },
+      "end": {
+        "line": 134,
+        "column": 17
+      }
+    },
+    "uid-15": {
+      "start": {
+        "line": 136,
+        "column": 4
+      },
+      "end": {
+        "line": 146,
+        "column": 19
+      }
+    },
+    "uid-16": {
+      "start": {
+        "line": 149,
+        "column": 2
+      },
+      "end": {
+        "line": 153,
+        "column": 14
+      }
+    },
+    "uid-17": {
+      "start": {
+        "line": 150,
+        "column": 4
+      },
+      "end": {
+        "line": 150,
+        "column": 79
+      }
+    },
+    "uid-18": {
+      "start": {
+        "line": 151,
+        "column": 4
+      },
+      "end": {
+        "line": 151,
+        "column": 79
+      }
+    },
+    "uid-19": {
+      "start": {
+        "line": 152,
+        "column": 4
+      },
+      "end": {
+        "line": 152,
+        "column": 85
+      }
+    }
+  }
+}

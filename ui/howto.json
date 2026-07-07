@@ -1,0 +1,361 @@
+{
+  "element": {
+    "sourceTag": "container",
+    "type": "custom",
+    "children": [
+      {
+        "sourceTag": "text",
+        "type": "custom",
+        "children": [
+          "HOW TO PLAY"
+        ],
+        "properties": {
+          "name": "howto-title",
+          "fontsize": "22",
+          "color": "#00ffff",
+          "fontweight": "bold"
+        },
+        "dataUid": "uid-2"
+      },
+      {
+        "sourceTag": "text",
+        "type": "custom",
+        "children": [
+          "WASD / Arrows / Left Stick = Move"
+        ],
+        "properties": {
+          "name": "howto-move",
+          "fontsize": "12",
+          "color": "#88ccff"
+        },
+        "dataUid": "uid-3"
+      },
+      {
+        "sourceTag": "text",
+        "type": "custom",
+        "children": [
+          "Space / E / Right Trigger = Place Bomb"
+        ],
+        "properties": {
+          "name": "howto-bomb",
+          "fontsize": "12",
+          "color": "#88ccff"
+        },
+        "dataUid": "uid-4"
+      },
+      {
+        "sourceTag": "text",
+        "type": "custom",
+        "children": [
+          "R / B Button = Remote Detonate"
+        ],
+        "properties": {
+          "name": "howto-remote",
+          "fontsize": "12",
+          "color": "#88ccff"
+        },
+        "dataUid": "uid-5"
+      },
+      {
+        "sourceTag": "text",
+        "type": "custom",
+        "children": [
+          "Esc / Left B = Pause"
+        ],
+        "properties": {
+          "name": "howto-pause",
+          "fontsize": "12",
+          "color": "#88ccff"
+        },
+        "dataUid": "uid-6"
+      },
+      {
+        "sourceTag": "text",
+        "type": "custom",
+        "children": [
+          "---"
+        ],
+        "properties": {
+          "name": "howto-sep",
+          "fontsize": "8",
+          "color": "#334466"
+        },
+        "dataUid": "uid-7"
+      },
+      {
+        "sourceTag": "text",
+        "type": "custom",
+        "children": [
+          "Destroy blocks to find power-ups"
+        ],
+        "properties": {
+          "name": "howto-tip1",
+          "fontsize": "11",
+          "color": "#ffcc00"
+        },
+        "dataUid": "uid-8"
+      },
+      {
+        "sourceTag": "text",
+        "type": "custom",
+        "children": [
+          "Chain explosions for combo bonus"
+        ],
+        "properties": {
+          "name": "howto-tip2",
+          "fontsize": "11",
+          "color": "#ffcc00"
+        },
+        "dataUid": "uid-9"
+      },
+      {
+        "sourceTag": "text",
+        "type": "custom",
+        "children": [
+          "Watch for laser warnings in later levels!"
+        ],
+        "properties": {
+          "name": "howto-tip3",
+          "fontsize": "11",
+          "color": "#ff8844"
+        },
+        "dataUid": "uid-10"
+      },
+      {
+        "sourceTag": "text",
+        "type": "custom",
+        "children": [
+          "Conveyor belts push you - use them wisely"
+        ],
+        "properties": {
+          "name": "howto-tip4",
+          "fontsize": "11",
+          "color": "#8888ff"
+        },
+        "dataUid": "uid-11"
+      },
+      {
+        "sourceTag": "text",
+        "type": "custom",
+        "children": [
+          "Mines detonate when enemies walk over them"
+        ],
+        "properties": {
+          "name": "howto-tip5",
+          "fontsize": "11",
+          "color": "#ff4400"
+        },
+        "dataUid": "uid-12"
+      },
+      {
+        "sourceTag": "text",
+        "type": "custom",
+        "children": [
+          "Levels 3+ may have random modifiers!"
+        ],
+        "properties": {
+          "name": "howto-tip6",
+          "fontsize": "11",
+          "color": "#ff8800"
+        },
+        "dataUid": "uid-13"
+      },
+      {
+        "sourceTag": "container",
+        "type": "custom",
+        "children": [
+          {
+            "sourceTag": "text",
+            "type": "custom",
+            "children": [
+              "GOT IT"
+            ],
+            "properties": {
+              "fontsize": "14",
+              "color": "#ffffff",
+              "fontweight": "bold"
+            },
+            "dataUid": "uid-15"
+          }
+        ],
+        "properties": {
+          "name": "btn-howto-back",
+          "backgroundcolor": "#006688",
+          "borderradius": "6",
+          "padding": "8",
+          "paddingleft": "24",
+          "paddingright": "24",
+          "margintop": "8",
+          "hoverBackgroundcolor": "#0088aa"
+        },
+        "dataUid": "uid-14"
+      }
+    ],
+    "properties": {
+      "name": "howto-root",
+      "flexdirection": "column",
+      "alignitems": "center",
+      "padding": "16",
+      "gap": "8",
+      "backgroundcolor": "#000022ee",
+      "borderradius": "12",
+      "borderwidth": "2",
+      "bordercolor": "#00ccff",
+      "width": "380"
+    },
+    "dataUid": "uid-1"
+  },
+  "classes": {},
+  "ranges": {
+    "uid-1": {
+      "start": {
+        "line": 0,
+        "column": 0
+      },
+      "end": {
+        "line": 40,
+        "column": 12
+      }
+    },
+    "uid-2": {
+      "start": {
+        "line": 12,
+        "column": 2
+      },
+      "end": {
+        "line": 12,
+        "column": 93
+      }
+    },
+    "uid-3": {
+      "start": {
+        "line": 14,
+        "column": 2
+      },
+      "end": {
+        "line": 14,
+        "column": 96
+      }
+    },
+    "uid-4": {
+      "start": {
+        "line": 15,
+        "column": 2
+      },
+      "end": {
+        "line": 15,
+        "column": 101
+      }
+    },
+    "uid-5": {
+      "start": {
+        "line": 16,
+        "column": 2
+      },
+      "end": {
+        "line": 16,
+        "column": 95
+      }
+    },
+    "uid-6": {
+      "start": {
+        "line": 17,
+        "column": 2
+      },
+      "end": {
+        "line": 17,
+        "column": 84
+      }
+    },
+    "uid-7": {
+      "start": {
+        "line": 19,
+        "column": 2
+      },
+      "end": {
+        "line": 19,
+        "column": 64
+      }
+    },
+    "uid-8": {
+      "start": {
+        "line": 21,
+        "column": 2
+      },
+      "end": {
+        "line": 21,
+        "column": 95
+      }
+    },
+    "uid-9": {
+      "start": {
+        "line": 22,
+        "column": 2
+      },
+      "end": {
+        "line": 22,
+        "column": 95
+      }
+    },
+    "uid-10": {
+      "start": {
+        "line": 23,
+        "column": 2
+      },
+      "end": {
+        "line": 23,
+        "column": 104
+      }
+    },
+    "uid-11": {
+      "start": {
+        "line": 24,
+        "column": 2
+      },
+      "end": {
+        "line": 24,
+        "column": 104
+      }
+    },
+    "uid-12": {
+      "start": {
+        "line": 25,
+        "column": 2
+      },
+      "end": {
+        "line": 25,
+        "column": 105
+      }
+    },
+    "uid-13": {
+      "start": {
+        "line": 26,
+        "column": 2
+      },
+      "end": {
+        "line": 26,
+        "column": 99
+      }
+    },
+    "uid-14": {
+      "start": {
+        "line": 28,
+        "column": 2
+      },
+      "end": {
+        "line": 39,
+        "column": 14
+      }
+    },
+    "uid-15": {
+      "start": {
+        "line": 38,
+        "column": 4
+      },
+      "end": {
+        "line": 38,
+        "column": 71
+      }
+    }
+  }
+}
