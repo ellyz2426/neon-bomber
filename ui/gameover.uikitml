@@ -1,0 +1,47 @@
+<container
+  name="gameover-root"
+  flexDirection="column"
+  alignItems="center"
+  justifyContent="center"
+  width="100%"
+  height="100%"
+  padding="20"
+  gap="12"
+  backgroundColor="#110000ee"
+  borderRadius="12"
+>
+  <text name="title" fontSize="28" color="#ff4444" fontWeight="bold">GAME OVER</text>
+  <text name="final-score" fontSize="20" color="#ffffff" fontWeight="bold">Score: 0</text>
+  <text name="stats" fontSize="12" color="#88aacc">Level 1 -- Enemies: 0 -- Blocks: 0</text>
+  <text name="best-score" fontSize="14" color="#ffcc00">Best: 0</text>
+  <text name="achievements" fontSize="11" color="#00ff88">Achievements: 0/40</text>
+
+  <container flexDirection="column" gap="8" alignItems="center" marginTop="16" width="80%">
+    <text
+      name="btn-retry"
+      fontSize="18"
+      color="#00ccff"
+      fontWeight="bold"
+      backgroundColor="#002244"
+      padding="10"
+      borderRadius="6"
+      width="100%"
+      textAlign="center"
+      cursor="pointer"
+      hover-backgroundColor="#003366"
+    >RETRY</text>
+
+    <text
+      name="btn-menu"
+      fontSize="16"
+      color="#8888aa"
+      backgroundColor="#111122"
+      padding="8"
+      borderRadius="6"
+      width="100%"
+      textAlign="center"
+      cursor="pointer"
+      hover-backgroundColor="#222244"
+    >MAIN MENU</text>
+  </container>
+</container>

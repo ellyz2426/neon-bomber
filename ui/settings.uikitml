@@ -1,0 +1,124 @@
+<container
+  name="settings-root"
+  flexDirection="column"
+  alignItems="center"
+  justifyContent="flex-start"
+  width="100%"
+  height="100%"
+  padding="20"
+  gap="10"
+  backgroundColor="#000811ee"
+  borderRadius="12"
+>
+  <text fontSize="24" color="#00ffff" fontWeight="bold">SETTINGS</text>
+
+  <text name="diff-label" fontSize="14" color="#ffffff" marginTop="12">Difficulty: Normal</text>
+  <container flexDirection="row" gap="6" alignItems="center" width="80%">
+    <text
+      name="btn-easy"
+      fontSize="13"
+      color="#00ff88"
+      backgroundColor="#002211"
+      padding="6"
+      borderRadius="4"
+      width="33%"
+      textAlign="center"
+      cursor="pointer"
+    >Easy</text>
+    <text
+      name="btn-normal"
+      fontSize="13"
+      color="#ffcc00"
+      backgroundColor="#222200"
+      padding="6"
+      borderRadius="4"
+      width="33%"
+      textAlign="center"
+      cursor="pointer"
+    >Normal</text>
+    <text
+      name="btn-hard"
+      fontSize="13"
+      color="#ff4444"
+      backgroundColor="#220000"
+      padding="6"
+      borderRadius="4"
+      width="33%"
+      textAlign="center"
+      cursor="pointer"
+    >Hard</text>
+  </container>
+
+  <text name="theme-label" fontSize="14" color="#ffffff" marginTop="8">Theme: Neon Grid</text>
+  <container flexDirection="column" gap="4" alignItems="center" width="80%">
+    <text
+      name="btn-theme-0"
+      fontSize="12"
+      color="#00ffff"
+      backgroundColor="#001122"
+      padding="5"
+      borderRadius="4"
+      width="100%"
+      textAlign="center"
+      cursor="pointer"
+    >Neon Grid</text>
+    <text
+      name="btn-theme-1"
+      fontSize="12"
+      color="#ff00ff"
+      backgroundColor="#110022"
+      padding="5"
+      borderRadius="4"
+      width="100%"
+      textAlign="center"
+      cursor="pointer"
+    >Cyber Punk</text>
+    <text
+      name="btn-theme-2"
+      fontSize="12"
+      color="#ff8800"
+      backgroundColor="#221100"
+      padding="5"
+      borderRadius="4"
+      width="100%"
+      textAlign="center"
+      cursor="pointer"
+    >Solar Flare</text>
+    <text
+      name="btn-theme-3"
+      fontSize="12"
+      color="#4488ff"
+      backgroundColor="#000811"
+      padding="5"
+      borderRadius="4"
+      width="100%"
+      textAlign="center"
+      cursor="pointer"
+    >Deep Space</text>
+    <text
+      name="btn-theme-4"
+      fontSize="12"
+      color="#00ff44"
+      backgroundColor="#002200"
+      padding="5"
+      borderRadius="4"
+      width="100%"
+      textAlign="center"
+      cursor="pointer"
+    >Toxic Glow</text>
+  </container>
+
+  <text
+    name="btn-back"
+    fontSize="16"
+    color="#8888aa"
+    backgroundColor="#111122"
+    padding="8"
+    borderRadius="6"
+    width="80%"
+    textAlign="center"
+    cursor="pointer"
+    marginTop="8"
+    hover-backgroundColor="#222244"
+  >BACK</text>
+</container>
