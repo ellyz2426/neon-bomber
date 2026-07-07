@@ -69,6 +69,10 @@ export interface EnemyData {
   patrolDir: number; // for patrol type
   teleportCooldown: number; // for teleporter type
   hp: number;
+  maxHp: number;
+  isBoss: boolean;
+  bossPhase: number; // 0=normal, 1=enraged, 2=desperate
+  bossAttackTimer: number;
 }
 
 export interface PowerUpData {
@@ -202,6 +206,122 @@ const PUZZLE_LEVELS: PuzzleLevel[] = [
     timeLimit: 150,
     hint: 'Use remote detonate for precision strikes',
   },
+  // Puzzle levels 6-10
+  {
+    name: 'Crossfire',
+    softBlocks: [[3, 1], [3, 3], [3, 5], [3, 7], [3, 9],
+      [5, 1], [5, 3], [5, 5], [5, 7], [5, 9],
+      [7, 1], [7, 3], [7, 5], [7, 7], [7, 9],
+      [9, 1], [9, 3], [9, 5], [9, 7], [9, 9]],
+    enemies: [
+      { x: 3, y: 1, type: 'bomber' },
+      { x: 9, y: 9, type: 'bomber' },
+      { x: 3, y: 9, type: 'chase' },
+      { x: 9, y: 1, type: 'chase' },
+    ],
+    powerUps: [
+      { x: 5, y: 5, type: PowerUpType.Shield },
+      { x: 7, y: 3, type: PowerUpType.ExtraBomb },
+    ],
+    exitPos: [6, 5],
+    maxBombs: 2,
+    blastRange: 3,
+    timeLimit: 120,
+    hint: 'Clear the grid while dodging enemy bombs',
+  },
+  {
+    name: 'Labyrinth',
+    softBlocks: [[1, 3], [2, 3], [3, 3], [4, 3], [5, 3],
+      [5, 4], [5, 5], [5, 6], [5, 7],
+      [7, 3], [7, 4], [7, 5], [7, 6], [7, 7],
+      [7, 7], [8, 7], [9, 7], [10, 7], [11, 7],
+      [9, 3], [9, 4], [9, 5],
+      [3, 5], [3, 6], [3, 7], [3, 8], [3, 9]],
+    enemies: [
+      { x: 11, y: 1, type: 'patrol' },
+      { x: 11, y: 9, type: 'patrol' },
+      { x: 6, y: 5, type: 'teleporter' },
+    ],
+    powerUps: [
+      { x: 1, y: 7, type: PowerUpType.Speed },
+      { x: 9, y: 1, type: PowerUpType.PassThrough },
+    ],
+    exitPos: [11, 5],
+    maxBombs: 2,
+    blastRange: 2,
+    timeLimit: 180,
+    hint: 'Navigate the maze passages to reach the exit',
+  },
+  {
+    name: 'Minefield',
+    softBlocks: [[2, 2], [4, 2], [6, 2], [8, 2], [10, 2],
+      [2, 4], [4, 4], [6, 4], [8, 4], [10, 4],
+      [2, 6], [4, 6], [6, 6], [8, 6], [10, 6],
+      [2, 8], [4, 8], [6, 8], [8, 8], [10, 8]],
+    enemies: [
+      { x: 11, y: 1, type: 'bomber' },
+      { x: 11, y: 5, type: 'bomber' },
+      { x: 11, y: 9, type: 'bomber' },
+      { x: 5, y: 5, type: 'wander' },
+      { x: 7, y: 5, type: 'wander' },
+    ],
+    powerUps: [
+      { x: 2, y: 2, type: PowerUpType.Shield },
+      { x: 6, y: 6, type: PowerUpType.BlastRange },
+    ],
+    exitPos: [10, 8],
+    maxBombs: 3,
+    blastRange: 2,
+    timeLimit: 150,
+    hint: 'Beware — bombers fill the arena with explosions',
+  },
+  {
+    name: 'Speed Run',
+    softBlocks: [[1, 5], [2, 5], [3, 5], [4, 5], [5, 5],
+      [7, 5], [8, 5], [9, 5], [10, 5], [11, 5],
+      [6, 1], [6, 2], [6, 3], [6, 7], [6, 8], [6, 9]],
+    enemies: [
+      { x: 11, y: 1, type: 'chase' },
+      { x: 1, y: 9, type: 'chase' },
+      { x: 6, y: 5, type: 'teleporter' },
+    ],
+    powerUps: [
+      { x: 1, y: 3, type: PowerUpType.Speed },
+      { x: 11, y: 7, type: PowerUpType.Speed },
+    ],
+    exitPos: [11, 9],
+    maxBombs: 1,
+    blastRange: 4,
+    timeLimit: 60,
+    hint: 'Race against the clock — 60 seconds!',
+  },
+  {
+    name: 'The Fortress',
+    softBlocks: [[3, 3], [4, 3], [5, 3], [7, 3], [8, 3], [9, 3],
+      [3, 4], [9, 4],
+      [3, 5], [9, 5],
+      [3, 6], [9, 6],
+      [3, 7], [4, 7], [5, 7], [7, 7], [8, 7], [9, 7],
+      [5, 4], [5, 6], [7, 4], [7, 6],
+      [1, 3], [1, 5], [1, 7], [11, 3], [11, 5], [11, 7]],
+    enemies: [
+      { x: 6, y: 5, type: 'bomber' },
+      { x: 6, y: 3, type: 'patrol' },
+      { x: 6, y: 7, type: 'patrol' },
+      { x: 3, y: 5, type: 'teleporter' },
+      { x: 9, y: 5, type: 'chase' },
+    ],
+    powerUps: [
+      { x: 1, y: 1, type: PowerUpType.RemoteDetonate },
+      { x: 11, y: 9, type: PowerUpType.ExtraBomb },
+      { x: 6, y: 1, type: PowerUpType.Shield },
+    ],
+    exitPos: [6, 5],
+    maxBombs: 2,
+    blastRange: 3,
+    timeLimit: 200,
+    hint: 'Breach the fortress walls to reach the center',
+  },
 ];
 
 export class GameManager {
@@ -225,6 +345,8 @@ export class GameManager {
   hasRemoteDetonate = false;
   hasShield = false;
   shieldTimer = 0;
+
+  bossesKilled = 0;
 
   score = 0;
   level = 1;
@@ -433,6 +555,10 @@ export class GameManager {
         patrolDir: 0,
         teleportCooldown: 5,
         hp: eData.type === 'teleporter' ? 2 : 1,
+        maxHp: eData.type === 'teleporter' ? 2 : 1,
+        isBoss: false,
+        bossPhase: 0,
+        bossAttackTimer: 0,
       });
     }
 
@@ -506,6 +632,45 @@ export class GameManager {
         patrolDir: 0,
         teleportCooldown: 6 + Math.random() * 4,
         hp: type === 'teleporter' ? 2 : 1,
+        maxHp: type === 'teleporter' ? 2 : 1,
+        isBoss: false,
+        bossPhase: 0,
+        bossAttackTimer: 0,
+      });
+    }
+
+    // Boss spawn at milestone levels (every 5 levels)
+    if (this.level % 5 === 0 && this.mode !== GameMode.Puzzle) {
+      const cx = Math.floor(GRID_W / 2);
+      const cy = Math.floor(GRID_H / 2);
+      // Clear center area for boss
+      for (let dy = -1; dy <= 1; dy++) {
+        for (let dx = -1; dx <= 1; dx++) {
+          const bx = cx + dx, by = cy + dy;
+          if (bx > 0 && bx < GRID_W - 1 && by > 0 && by < GRID_H - 1) {
+            if (this.grid[by][bx] === CellType.SoftBlock) {
+              this.grid[by][bx] = CellType.Empty;
+            }
+          }
+        }
+      }
+      const bossHp = 8 + Math.floor(this.level / 5) * 4;
+      this.enemies.push({
+        x: cx, y: cy,
+        targetX: cx, targetY: cy,
+        moveTimer: 0,
+        moveSpeed: 0.5 + this.difficulty * 0.15,
+        alive: true,
+        type: 'chase',
+        visualX: cx, visualY: cy,
+        bombCooldown: 0,
+        patrolDir: 0,
+        teleportCooldown: 8,
+        hp: bossHp,
+        maxHp: bossHp,
+        isBoss: true,
+        bossPhase: 0,
+        bossAttackTimer: 3,
       });
     }
   }
@@ -1001,10 +1166,12 @@ export class GameManager {
           enemy.alive = false;
           this.enemiesKilled++;
           this.totalEnemiesKilled++;
-          const baseScore = enemy.type === 'bomber' ? 300 :
+          if (enemy.isBoss) this.bossesKilled++;
+          let baseScore = enemy.type === 'bomber' ? 300 :
             enemy.type === 'chase' ? 200 :
             enemy.type === 'teleporter' ? 400 :
             enemy.type === 'patrol' ? 250 : 100;
+          if (enemy.isBoss) baseScore = 2000 + this.level * 500;
           this.score += baseScore * this.multiplier * (1 + this.comboCount * 0.5);
           this.multiplier = Math.min(this.multiplier + 1, 8);
           this.multiplierTimer = 5.0;
@@ -1038,6 +1205,36 @@ export class GameManager {
           this.teleportEnemy(enemy);
           enemy.teleportCooldown = 5 + Math.random() * 5;
           result.enemyTeleported = enemy;
+        }
+      }
+
+      // Boss phase transitions and attacks
+      if (enemy.isBoss) {
+        const hpPct = enemy.hp / enemy.maxHp;
+        if (hpPct <= 0.25 && enemy.bossPhase < 2) {
+          enemy.bossPhase = 2; // desperate
+          enemy.moveSpeed = 1.0 + this.difficulty * 0.3;
+        } else if (hpPct <= 0.5 && enemy.bossPhase < 1) {
+          enemy.bossPhase = 1; // enraged
+          enemy.moveSpeed = 0.7 + this.difficulty * 0.2;
+        }
+
+        enemy.bossAttackTimer -= delta;
+        if (enemy.bossAttackTimer <= 0) {
+          this.placeEnemyBomb(enemy);
+          if (enemy.bossPhase >= 2) {
+            // Desperate: teleport + rapid bombs
+            if (enemy.teleportCooldown <= 0) {
+              this.teleportEnemy(enemy);
+              enemy.teleportCooldown = 3;
+              result.enemyTeleported = enemy;
+            }
+            enemy.bossAttackTimer = 1.5;
+          } else if (enemy.bossPhase >= 1) {
+            enemy.bossAttackTimer = 2;
+          } else {
+            enemy.bossAttackTimer = 3;
+          }
         }
       }
 
@@ -1409,6 +1606,12 @@ export class GameManager {
       { id: 'all_themes', name: 'Interior Designer', cond: () => this.totalGames >= 5 },
       { id: 'blocks_2000', name: 'Obliterator', cond: () => this.totalBlocksDestroyed >= 2000 },
       { id: 'bombs_500', name: 'Pyromaniac', cond: () => this.totalBombsPlaced >= 500 },
+      // Boss achievements
+      { id: 'boss_kill', name: 'Boss Slayer', cond: () => this.bossesKilled >= 1 },
+      { id: 'boss_kill_3', name: 'Boss Crusher', cond: () => this.bossesKilled >= 3 },
+      { id: 'boss_flawless', name: 'Flawless Boss', cond: () => this.bossesKilled >= 1 && this.lives === (this.mode === GameMode.Survival ? 1 : 3) },
+      { id: 'boss_desperate', name: 'Pushed to the Edge', cond: () => this.enemies.some(e => e.isBoss && !e.alive && e.bossPhase >= 2) },
+      { id: 'puzzle_10', name: 'Puzzle Legend', cond: () => this.mode === GameMode.Puzzle && this.level >= 10 },
     ];
 
     for (const check of checks) {
@@ -1442,11 +1645,13 @@ export class GameManager {
       level_20: 'Unstoppable', kill_200: 'Annihilator', total_200k: 'Career: 200K',
       combo_20: 'Infinite Combo', all_themes: 'Interior Designer',
       blocks_2000: 'Obliterator', bombs_500: 'Pyromaniac',
+      boss_kill: 'Boss Slayer', boss_kill_3: 'Boss Crusher', boss_flawless: 'Flawless Boss',
+      boss_desperate: 'Pushed to the Edge', puzzle_10: 'Puzzle Legend',
     };
     return names[id] || id;
   }
 
-  get totalAchievementCount() { return 60; }
+  get totalAchievementCount() { return 65; }
 
   getEnemyCountForNextLevel(): number {
     return 2 + (this.level + 1) + this.difficulty;

@@ -88,8 +88,10 @@ export class GameSystem extends createSystem({}) {
   private laserMeshes: Map<number, Group> = new Map();
   private laserWarningMeshes: Map<number, Mesh[]> = new Map();
   private conveyorMeshes: Map<string, Group> = new Map();
-  private dangerZoneMeshes: Mesh[] = [];
-  private trailMeshes: Mesh[] = [];
+  private dangerZonePool: Mesh[] = [];
+  private dangerZoneActiveCount = 0;
+  private trailPool: Mesh[] = [];
+  private trailActiveCount = 0;
   private starfieldGroup!: Group;
   private starfieldStars: Mesh[] = [];
   private shakeTimer = 0;
@@ -192,6 +194,28 @@ export class GameSystem extends createSystem({}) {
       );
       this.starfieldGroup.add(star);
       this.starfieldStars.push(star);
+    }
+
+    // Danger zone mesh pool (avoids per-frame allocation)
+    const dzGeo = new BoxGeometry(CELL_SIZE * 0.85, 0.02, CELL_SIZE * 0.85);
+    for (let pi = 0; pi < 50; pi++) {
+      const dzMat = new MeshBasicMaterial({ color: 0xff2200, transparent: true, opacity: 0.08, blending: AdditiveBlending });
+      const mesh = new Mesh(dzGeo, dzMat);
+      mesh.visible = false;
+      mesh.position.y = 0.015;
+      this.arenaGroup.add(mesh);
+      this.dangerZonePool.push(mesh);
+    }
+
+    // Trail mesh pool
+    const trGeo = new SphereGeometry(0.08, 6, 6);
+    for (let pi = 0; pi < 15; pi++) {
+      const trMat = new MeshBasicMaterial({ color: 0x00ffff, transparent: true, opacity: 0.3, blending: AdditiveBlending });
+      const mesh = new Mesh(trGeo, trMat);
+      mesh.visible = false;
+      mesh.position.y = 0.1;
+      this.arenaGroup.add(mesh);
+      this.trailPool.push(mesh);
     }
   }
 
@@ -403,6 +427,11 @@ export class GameSystem extends createSystem({}) {
       const mat = star.material as MeshBasicMaterial;
       mat.opacity = 0.2 + Math.sin(time * (0.5 + (i % 7) * 0.3) + i) * 0.3;
       star.position.y += Math.sin(time * 0.3 + i * 0.1) * 0.002;
+    }
+
+    // Periodically update music intensity (~2x/sec)
+    if (Math.floor(time * 2) !== Math.floor((time - delta) * 2)) {
+      this.updateMusicIntensity();
     }
   }
 
@@ -653,44 +682,90 @@ export class GameSystem extends createSystem({}) {
 
       if (!this.enemyMeshes.has(i)) {
         const group = new Group();
-        const mat = this.getEnemyMaterial(enemy.type);
 
-        if (enemy.type === 'teleporter') {
-          const body = new Mesh(GEO.enemyTeleporter!, mat);
-          body.position.y = 0.35;
-          group.add(body);
+        if (enemy.isBoss) {
+          // Boss: larger body with crown and HP bar
+          const bossMat = new MeshStandardMaterial({
+            color: 0xffcc00, metalness: 0.7, roughness: 0.2,
+            emissive: 0xff8800, emissiveIntensity: 0.6,
+          });
+          const bossBody = new Mesh(new BoxGeometry(0.7, 0.8, 0.7), bossMat);
+          bossBody.position.y = 0.5;
+          group.add(bossBody); // [0] body
 
-          // Teleporter has a ring
-          const ring = new Mesh(
-            new CylinderGeometry(0.35, 0.35, 0.04, 12),
-            MAT.enemyTeleporter!.clone()
+          // Crown spikes
+          const spikeMat = new MeshBasicMaterial({ color: 0xffcc00, transparent: true, opacity: 0.8, blending: AdditiveBlending });
+          for (let s = 0; s < 4; s++) {
+            const spike = new Mesh(new CylinderGeometry(0, 0.06, 0.25, 4), spikeMat);
+            const angle = (s / 4) * Math.PI * 2;
+            spike.position.set(Math.cos(angle) * 0.25, 0.95, Math.sin(angle) * 0.25);
+            group.add(spike); // [1-4] spikes
+          }
+
+          // HP bar background
+          const hpBg = new Mesh(
+            new BoxGeometry(0.9, 0.08, 0.08),
+            new MeshBasicMaterial({ color: 0x222222 })
           );
-          ring.position.y = 0.15;
-          group.add(ring);
+          hpBg.position.set(0, 1.2, 0);
+          group.add(hpBg); // [5]
+
+          // HP bar fill
+          const hpFill = new Mesh(
+            new BoxGeometry(0.86, 0.06, 0.06),
+            new MeshBasicMaterial({ color: 0x00ff44 })
+          );
+          hpFill.position.set(0, 1.2, 0);
+          group.add(hpFill); // [6]
+
+          // Boss eyes (larger, red)
+          const bossEyeMat = new MeshBasicMaterial({ color: 0xff0000 });
+          const bossEyeGeo = new SphereGeometry(0.08, 6, 6);
+          const be1 = new Mesh(bossEyeGeo, bossEyeMat);
+          be1.position.set(-0.15, 0.6, -0.34);
+          group.add(be1);
+          const be2 = new Mesh(bossEyeGeo, bossEyeMat);
+          be2.position.set(0.15, 0.6, -0.34);
+          group.add(be2);
         } else {
-          const body = new Mesh(GEO.enemy!, mat);
-          body.position.y = 0.35;
-          group.add(body);
-        }
+          const mat = this.getEnemyMaterial(enemy.type);
 
-        // Eyes
-        const eyeMat = new MeshBasicMaterial({ color: 0xffffff });
-        const eyeGeo = new SphereGeometry(0.06, 6, 6);
-        const eye1 = new Mesh(eyeGeo, eyeMat);
-        eye1.position.set(-0.1, 0.45, -0.22);
-        group.add(eye1);
-        const eye2 = new Mesh(eyeGeo, eyeMat);
-        eye2.position.set(0.1, 0.45, -0.22);
-        group.add(eye2);
+          if (enemy.type === 'teleporter') {
+            const body = new Mesh(GEO.enemyTeleporter!, mat);
+            body.position.y = 0.35;
+            group.add(body);
 
-        // HP indicator for multi-hp enemies
-        if (enemy.hp > 1) {
-          const hpMat = new MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.8 });
-          const hpGeo = new SphereGeometry(0.04, 6, 6);
-          for (let h = 0; h < enemy.hp; h++) {
-            const dot = new Mesh(hpGeo, hpMat);
-            dot.position.set((h - (enemy.hp - 1) / 2) * 0.12, 0.7, 0);
-            group.add(dot);
+            const ring = new Mesh(
+              new CylinderGeometry(0.35, 0.35, 0.04, 12),
+              MAT.enemyTeleporter!.clone()
+            );
+            ring.position.y = 0.15;
+            group.add(ring);
+          } else {
+            const body = new Mesh(GEO.enemy!, mat);
+            body.position.y = 0.35;
+            group.add(body);
+          }
+
+          // Eyes
+          const eyeMat = new MeshBasicMaterial({ color: 0xffffff });
+          const eyeGeo = new SphereGeometry(0.06, 6, 6);
+          const eye1 = new Mesh(eyeGeo, eyeMat);
+          eye1.position.set(-0.1, 0.45, -0.22);
+          group.add(eye1);
+          const eye2 = new Mesh(eyeGeo, eyeMat);
+          eye2.position.set(0.1, 0.45, -0.22);
+          group.add(eye2);
+
+          // HP indicator for multi-hp non-boss enemies
+          if (enemy.hp > 1) {
+            const hpMat = new MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.8 });
+            const hpGeo = new SphereGeometry(0.04, 6, 6);
+            for (let h = 0; h < enemy.hp; h++) {
+              const dot = new Mesh(hpGeo, hpMat);
+              dot.position.set((h - (enemy.hp - 1) / 2) * 0.12, 0.7, 0);
+              group.add(dot);
+            }
           }
         }
 
@@ -702,7 +777,37 @@ export class GameSystem extends createSystem({}) {
       group.position.set(wx, 0, wz);
 
       // Animations per type
-      if (enemy.type === 'patrol') {
+      if (enemy.isBoss) {
+        group.children[0].position.y = 0.5 + Math.sin(this.animTime * 2) * 0.1;
+        group.rotation.y = this.animTime * 0.5;
+
+        // HP bar update
+        const hpPct = enemy.hp / enemy.maxHp;
+        const hpFill = group.children[6] as Mesh;
+        if (hpFill) {
+          hpFill.scale.x = Math.max(hpPct, 0.01);
+          hpFill.position.x = (hpPct - 1) * 0.43;
+          const hpMat = hpFill.material as MeshBasicMaterial;
+          if (hpPct > 0.5) hpMat.color.setHex(0x00ff44);
+          else if (hpPct > 0.25) hpMat.color.setHex(0xffcc00);
+          else hpMat.color.setHex(0xff0000);
+        }
+
+        // Phase visual feedback
+        const bossMat = (group.children[0] as Mesh).material as MeshStandardMaterial;
+        if (enemy.bossPhase >= 2) {
+          bossMat.emissive.setHex(0xff0000);
+          bossMat.emissiveIntensity = 0.6 + Math.sin(this.animTime * 8) * 0.3;
+        } else if (enemy.bossPhase >= 1) {
+          bossMat.emissive.setHex(0xff6600);
+          bossMat.emissiveIntensity = 0.5 + Math.sin(this.animTime * 4) * 0.2;
+        }
+
+        // Crown spike rotation
+        for (let s = 1; s <= 4; s++) {
+          if (group.children[s]) group.children[s].rotation.y = this.animTime * 2;
+        }
+      } else if (enemy.type === 'patrol') {
         group.children[0].position.y = 0.35;
         group.rotation.y = (enemy.patrolDir * Math.PI) / 2;
       } else if (enemy.type === 'teleporter') {
@@ -832,8 +937,9 @@ export class GameSystem extends createSystem({}) {
   private spawnEnemyDeathEffect(enemy: EnemyData) {
     const [wx, , wz] = gridToWorld(enemy.visualX, enemy.visualY);
     const deathColor = this.getEnemyDeathColor(enemy.type);
-    for (let i = 0; i < 10; i++) {
-      const size = 0.06 + Math.random() * 0.08;
+    const particleCount = enemy.isBoss ? 25 : 10;
+    for (let i = 0; i < particleCount; i++) {
+      const size = enemy.isBoss ? (0.08 + Math.random() * 0.12) : (0.06 + Math.random() * 0.08);
       const geo = new BoxGeometry(size, size, size);
       const mat = new MeshBasicMaterial({
         color: deathColor,
@@ -859,7 +965,11 @@ export class GameSystem extends createSystem({}) {
         color: deathColor,
       });
     }
-    this.playEnemyDeathSound(enemy.type);
+    if (enemy.isBoss) {
+      this.playBossDeathSound();
+    } else {
+      this.playEnemyDeathSound(enemy.type);
+    }
   }
 
   private getEnemyDeathColor(type: EnemyData['type']): number {
@@ -968,9 +1078,11 @@ export class GameSystem extends createSystem({}) {
     this.playerGroup.visible = true;
     this.arenaGroup.visible = true;
     this.lastGridHash = ''; // Force rebuild
+    this.startAmbientMusic();
   }
 
   hideGame() {
+    this.stopAmbientMusic();
     this.playerGroup.visible = false;
     for (const [, mesh] of this.blockMeshes) this.arenaGroup.remove(mesh);
     this.blockMeshes.clear();
@@ -990,10 +1102,10 @@ export class GameSystem extends createSystem({}) {
     this.laserWarningMeshes.clear();
     for (const [, group] of this.conveyorMeshes) this.arenaGroup.remove(group);
     this.conveyorMeshes.clear();
-    for (const m of this.dangerZoneMeshes) this.arenaGroup.remove(m);
-    this.dangerZoneMeshes = [];
-    for (const m of this.trailMeshes) this.arenaGroup.remove(m);
-    this.trailMeshes = [];
+    for (const m of this.dangerZonePool) m.visible = false;
+    this.dangerZoneActiveCount = 0;
+    for (const m of this.trailPool) m.visible = false;
+    this.trailActiveCount = 0;
     if (this.exitMesh) {
       this.arenaGroup.remove(this.exitMesh);
       this.exitMesh = null;
@@ -1165,56 +1277,49 @@ export class GameSystem extends createSystem({}) {
   }
 
   private updateDangerZoneVisuals(time: number) {
-    // Remove old danger zone meshes
-    for (const m of this.dangerZoneMeshes) {
-      this.arenaGroup.remove(m);
-    }
-    this.dangerZoneMeshes = [];
-
-    const dangerMat = new MeshBasicMaterial({
-      color: 0xff2200,
-      transparent: true,
-      opacity: 0.06 + Math.sin(time * 4) * 0.04,
-      blending: AdditiveBlending,
-    });
+    let poolIdx = 0;
+    const opacity = 0.06 + Math.sin(time * 4) * 0.04;
 
     for (const zone of this.game.dangerZones) {
       for (const cell of zone.cells) {
+        if (poolIdx >= this.dangerZonePool.length) break;
+        const mesh = this.dangerZonePool[poolIdx];
         const [wx, , wz] = gridToWorld(cell.x, cell.y);
-        const mesh = new Mesh(new BoxGeometry(CELL_SIZE * 0.85, 0.02, CELL_SIZE * 0.85), dangerMat);
         mesh.position.set(wx, 0.015, wz);
-        this.arenaGroup.add(mesh);
-        this.dangerZoneMeshes.push(mesh);
+        (mesh.material as MeshBasicMaterial).opacity = opacity;
+        mesh.visible = true;
+        poolIdx++;
       }
     }
+    for (let idx = poolIdx; idx < this.dangerZonePool.length; idx++) {
+      this.dangerZonePool[idx].visible = false;
+    }
+    this.dangerZoneActiveCount = poolIdx;
   }
 
   private updateTrailVisuals() {
-    // Remove old trail meshes
-    for (const m of this.trailMeshes) {
-      this.arenaGroup.remove(m);
-    }
-    this.trailMeshes = [];
+    let poolIdx = 0;
 
     for (const t of this.game.playerTrail) {
       const alpha = 1 - t.age / 0.5;
-      if (alpha <= 0) continue;
-      const mat = new MeshBasicMaterial({
-        color: 0x00ffff,
-        transparent: true,
-        opacity: alpha * 0.3,
-        blending: AdditiveBlending,
-      });
+      if (alpha <= 0 || poolIdx >= this.trailPool.length) continue;
+      const mesh = this.trailPool[poolIdx];
       const [wx, , wz] = gridToWorld(t.x, t.y);
-      const mesh = new Mesh(new SphereGeometry(0.08 * alpha, 6, 6), mat);
       mesh.position.set(wx, 0.1, wz);
-      this.arenaGroup.add(mesh);
-      this.trailMeshes.push(mesh);
+      mesh.scale.setScalar(alpha);
+      (mesh.material as MeshBasicMaterial).opacity = alpha * 0.3;
+      mesh.visible = true;
+      poolIdx++;
     }
+    for (let idx = poolIdx; idx < this.trailPool.length; idx++) {
+      this.trailPool[idx].visible = false;
+    }
+    this.trailActiveCount = poolIdx;
   }
 
   // --- Procedural audio ---
   private audioCtx: AudioContext | null = null;
+  private musicNodes: { oscs: OscillatorNode[]; masterGain: GainNode; filter: BiquadFilterNode } | null = null;
 
   private getAudioCtx(): AudioContext {
     if (!this.audioCtx) {
@@ -1346,5 +1451,112 @@ export class GameSystem extends createSystem({}) {
     const freq = 500 + mult * 100;
     this.playTone(freq, 0.12, 0.1, 'sine');
     setTimeout(() => this.playTone(freq * 1.5, 0.1, 0.08, 'sine'), 60);
+  }
+
+  startAmbientMusic() {
+    if (this.musicNodes) return;
+    try {
+      const ctx = this.getAudioCtx();
+      const masterGain = ctx.createGain();
+      masterGain.gain.setValueAtTime(0, ctx.currentTime);
+      masterGain.gain.linearRampToValueAtTime(this.game.musicVolume * 0.12, ctx.currentTime + 2);
+      masterGain.connect(ctx.destination);
+
+      // Bass drone
+      const bass = ctx.createOscillator();
+      bass.type = 'sine';
+      bass.frequency.setValueAtTime(55, ctx.currentTime);
+      const bassGain = ctx.createGain();
+      bassGain.gain.setValueAtTime(0.4, ctx.currentTime);
+      bass.connect(bassGain);
+      bassGain.connect(masterGain);
+      bass.start();
+
+      // Sub-bass
+      const sub = ctx.createOscillator();
+      sub.type = 'sine';
+      sub.frequency.setValueAtTime(27.5, ctx.currentTime);
+      const subGain = ctx.createGain();
+      subGain.gain.setValueAtTime(0.2, ctx.currentTime);
+      sub.connect(subGain);
+      subGain.connect(masterGain);
+      sub.start();
+
+      // Pad with filter sweep
+      const pad = ctx.createOscillator();
+      pad.type = 'triangle';
+      pad.frequency.setValueAtTime(110, ctx.currentTime);
+      const filter = ctx.createBiquadFilter();
+      filter.type = 'lowpass';
+      filter.frequency.setValueAtTime(300, ctx.currentTime);
+      filter.Q.setValueAtTime(2, ctx.currentTime);
+      const padGain = ctx.createGain();
+      padGain.gain.setValueAtTime(0.15, ctx.currentTime);
+      pad.connect(filter);
+      filter.connect(padGain);
+      padGain.connect(masterGain);
+      pad.start();
+
+      // LFO for filter modulation
+      const lfo = ctx.createOscillator();
+      lfo.type = 'sine';
+      lfo.frequency.setValueAtTime(0.08, ctx.currentTime);
+      const lfoGain = ctx.createGain();
+      lfoGain.gain.setValueAtTime(200, ctx.currentTime);
+      lfo.connect(lfoGain);
+      lfoGain.connect(filter.frequency);
+      lfo.start();
+
+      // Fifth interval
+      const fifth = ctx.createOscillator();
+      fifth.type = 'sine';
+      fifth.frequency.setValueAtTime(82.5, ctx.currentTime);
+      const fifthGain = ctx.createGain();
+      fifthGain.gain.setValueAtTime(0.1, ctx.currentTime);
+      fifth.connect(fifthGain);
+      fifthGain.connect(masterGain);
+      fifth.start();
+
+      this.musicNodes = { oscs: [bass, sub, pad, lfo, fifth], masterGain, filter };
+    } catch { /* audio may not be available */ }
+  }
+
+  stopAmbientMusic() {
+    if (!this.musicNodes) return;
+    try {
+      const ctx = this.getAudioCtx();
+      this.musicNodes.masterGain.gain.linearRampToValueAtTime(0, ctx.currentTime + 1);
+      const nodes = this.musicNodes;
+      setTimeout(() => {
+        for (const osc of nodes.oscs) {
+          try { osc.stop(); } catch { /* already stopped */ }
+        }
+      }, 1200);
+    } catch { /* ignore */ }
+    this.musicNodes = null;
+  }
+
+  updateMusicIntensity() {
+    if (!this.musicNodes) return;
+    try {
+      const ctx = this.getAudioCtx();
+      const vol = this.game.musicVolume * 0.12;
+      const boss = this.game.enemies.find(e => e.isBoss && e.alive);
+      const intensity = boss ? (boss.bossPhase >= 2 ? 1.8 : boss.bossPhase >= 1 ? 1.4 : 1.1) : 1.0;
+      this.musicNodes.masterGain.gain.linearRampToValueAtTime(vol * intensity, ctx.currentTime + 0.5);
+      const filterFreq = 300 + this.game.level * 30 + (boss ? 200 : 0);
+      this.musicNodes.filter.frequency.linearRampToValueAtTime(Math.min(filterFreq, 1200), ctx.currentTime + 1);
+    } catch { /* ignore */ }
+  }
+
+  playBossDeathSound() {
+    this.playNoise(0.5, 0.4);
+    this.playTone(200, 0.15, 0.3, 'sawtooth');
+    setTimeout(() => this.playTone(150, 0.2, 0.25, 'sawtooth'), 100);
+    setTimeout(() => this.playTone(100, 0.3, 0.2, 'sawtooth'), 200);
+    setTimeout(() => {
+      this.playTone(400, 0.2, 0.15, 'sine');
+      this.playTone(600, 0.2, 0.12, 'sine');
+    }, 400);
   }
 }

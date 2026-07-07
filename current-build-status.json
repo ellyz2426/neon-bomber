@@ -7,8 +7,8 @@
   "pages_url": "https://ellyz2426.github.io/neon-bomber/",
   "build_start_utc": "2026-07-07T07:00:00Z",
   "target_hours": 6,
-  "total_build_minutes": 45,
-  "status": "building",
+  "total_build_minutes": 70,
+  "status": "waiting_continuation",
   "rounds": [
     {
       "round": 2,
@@ -18,6 +18,16 @@
       "features": "Puzzle mode (5 levels), 2 new enemy types (patrol + teleporter), 50 achievements (up from 40), Pause panel, Achievements panel, Power-ups HUD, Level transition panel, high score persistence (localStorage), neon arena border walls, enemy death particles, teleport effects, fuse spark animation, combo sound feedback, exit tiles for puzzle mode, enemy HP system, fastest/survival time tracking, save settings",
       "loc": 3316,
       "panels": 8,
+      "deployed": true
+    },
+    {
+      "round": 2,
+      "start_utc": "2026-07-07T10:58:00Z",
+      "end_utc": "2026-07-07T11:21:09Z",
+      "duration_minutes": 25,
+      "features": "Environmental hazards: laser beams (warning+fire cycle, damage player/enemies, row/col patterns), conveyor belts (push entities), danger zone indicators (show bomb blast radius preview), score multiplier system (kills build x1-x8 multi), player trail effect (fading cyan trail), starfield background (120 animated stars), How to Play panel with controls/tips, expanded to 60 achievements (Quad Damage, Octakill, Laser Dodger, etc.), laser/conveyor/multiplier SFX, improved HUD with multiplier display",
+      "loc": 3452,
+      "panels": 9,
       "deployed": true
     }
   ],
@@ -45,7 +55,17 @@
     "Bomb fuse spark animation",
     "High score and settings persistence",
     "Enemy-specific death sounds and colors",
-    "Timer warning colors for timed/puzzle modes"
+    "Timer warning colors for timed/puzzle modes",
+    "Environmental hazard: laser beams (row/col, warning + fire cycle)",
+    "Environmental hazard: conveyor belts (push entities)",
+    "Danger zone indicators (bomb blast radius preview)",
+    "Score multiplier system (x1-x8, builds on kills)",
+    "Player trail effect (fading cyan spheres)",
+    "Starfield background (120 animated stars)",
+    "How to Play panel with controls and tips",
+    "60 achievements (10 new: Quad Damage, Octakill, Laser Dodger, Unstoppable, Annihilator, Career 200K, Infinite Combo, Interior Designer, Obliterator, Pyromaniac)",
+    "Laser/conveyor/multiplier SFX",
+    "HUD multiplier display"
   ],
-  "last_updated_utc": "2026-07-07T10:58:57Z"
+  "last_updated_utc": "2026-07-07T11:21:09Z"
 }

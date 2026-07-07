@@ -440,6 +440,17 @@ export class GameUISystem extends createSystem({
     } else {
       setText(this.hudDoc, 'multiplier', '');
     }
+
+    // Boss HP indicator
+    const boss = this.game.enemies.find(e => e.isBoss && e.alive);
+    if (boss) {
+      const hpPct = Math.round((boss.hp / boss.maxHp) * 100);
+      const phaseNames = ['', ' [ENRAGED]', ' [DESPERATE]'];
+      setText(this.hudDoc, 'boss-hp', `BOSS ${hpPct}%${phaseNames[boss.bossPhase] || ''}`);
+      setColor(this.hudDoc, 'boss-hp', hpPct > 50 ? '#ffcc00' : hpPct > 25 ? '#ff8800' : '#ff0000');
+    } else {
+      setText(this.hudDoc, 'boss-hp', '');
+    }
   }
 
   private updatePowerUpsHUD() {
